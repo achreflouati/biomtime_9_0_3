@@ -532,6 +532,91 @@ def test_authentication_only():
         print(f"❌ Exception test auth: {str(e)}")
         return {"status": "error", "message": str(e)}
 
+@frappe.whitelist()
+def comprehensive_auth_test():
+    """Test complet de l'authentification et des endpoints BioTime"""
+    try:
+        print("🔐 === TEST COMPLET AUTHENTIFICATION BIOTIME ===")
+        
+        doc = frappe.get_single("BioTime Setting")
+        print(f"🌐 URL configurée: {doc.url}")
+        print(f"👤 Username: {doc.user_name}")
+        
+        # ✅ Test 1: Récupération token
+        token = get_tokan()
+        if token:
+            print(f"✅ Token obtenu: {token[:20]}...")
+        else:
+            return {"status": "error", "message": "❌ Impossible de récupérer le token"}
+        
+        # ✅ Test 2: Test de connectivité de base
+        print("\n🌐 Test de connectivité de base...")
+        try:
+            ping_response = requests.get(doc.url, timeout=5)
+            print(f"   Ping Status: {ping_response.status_code}")
+            print(f"   Ping Response: {ping_response.text[:200]}...")
+        except Exception as e:
+            print(f"   Ping Error: {str(e)}")
+            
+        # ✅ Test 3: Test des différents formats d'authorization
+        print("\n🔍 Test formats d'autorisation...")
+        test_url = f"{doc.url}/personnel/api/employees/?page_size=1"
+        
+        auth_formats = [
+            f'JWT {token}',
+            f'Bearer {token}', 
+            f'Token {token}',
+            token,
+        ]
+        
+        for i, auth_format in enumerate(auth_formats):
+            format_name = auth_format.split(' ')[0] if ' ' in auth_format else 'Token seul'
+            headers = {
+                'Authorization': auth_format,
+                'Content-Type': 'application/json'
+            }
+            
+            print(f"\n📡 Test format {i+1}: {format_name}")
+            try:
+                resp = requests.get(test_url, headers=headers, timeout=5)
+                print(f"   Status: {resp.status_code}")
+                print(f"   Response: {resp.text[:150]}...")
+                
+                if resp.ok:
+                    print(f"   ✅ SUCCESS avec format: {format_name}")
+                    return {"status": "success", "format": format_name, "message": f"Format fonctionnel: {format_name}"}
+                    
+            except Exception as e:
+                print(f"   Erreur: {str(e)}")
+        
+        # ✅ Test 4: Test endpoints alternatifs
+        print("\n🔍 Test endpoints alternatifs...")
+        endpoints = [
+            "/api/employees/",
+            "/employees/",
+            "/personnel/employees/",
+            "/api/personnel/employees/",
+        ]
+        
+        headers = {'Authorization': f'JWT {token}', 'Content-Type': 'application/json'}
+        for endpoint in endpoints:
+            url = doc.url + endpoint
+            print(f"📡 Test: {endpoint}")
+            
+            try:
+                resp = requests.get(url, headers=headers, timeout=5)
+                print(f"   Status: {resp.status_code}")
+                if resp.ok:
+                    print(f"   ✅ Endpoint fonctionnel: {endpoint}")
+            except Exception as e:
+                print(f"   Erreur: {str(e)}")
+        
+        return {"status": "warning", "message": "Aucun format/endpoint fonctionnel trouvé"}
+            
+    except Exception as e:
+        print(f"❌ Exception test auth: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
 def get_tokan():
     """Récupère un token depuis BioTime selon la documentation officielle"""
     doc = frappe.get_single("BioTime Setting")
@@ -610,9 +695,44 @@ def get_url():
 def get_auth_headers():
     """Retourne les headers d'authentification selon la documentation officielle"""
     token = get_tokan()
+    
+    if not token:
+        print("❌ Impossible de récupérer le token")
+        return None
+        
+    print(f"🔑 Token obtenu: {token[:20]}...")
+    
+    # 🧪 Test de plusieurs formats d'Authorization selon la documentation
+    doc = frappe.get_single("BioTime Setting")
+    test_url = f"{doc.url}/personnel/api/employees/?page_size=1"
+    
+    headers_to_test = [
+        {'Authorization': f'JWT {token}', 'Content-Type': 'application/json'},  # Format actuel
+        {'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'},  # Format Bearer
+        {'Authorization': f'Token {token}', 'Content-Type': 'application/json'},  # Format Token
+        {'Authorization': token, 'Content-Type': 'application/json'},  # Token seul
+    ]
+    
+    for i, headers in enumerate(headers_to_test):
+        format_name = headers['Authorization'].split(' ')[0] if ' ' in headers['Authorization'] else 'Token seul'
+        print(f"🧪 Test format {i+1}: {format_name}")
+        
+        try:
+            test_response = requests.get(test_url, headers=headers, timeout=5)
+            print(f"   Status: {test_response.status_code}")
+            
+            if test_response.ok:
+                print(f"✅ Format fonctionnel trouvé: {format_name}")
+                return headers  # Retourner le format qui fonctionne
+            elif test_response.status_code != 401:
+                print(f"   Réponse non-401: {test_response.text[:100]}")
+                
+        except Exception as e:
+            print(f"   Erreur: {str(e)[:50]}")
+    
+    print("⚠️ Aucun format d'Authorization fonctionnel trouvé, utilisation JWT par défaut")
     return {
         'Content-Type': 'application/json',
-        # ✅ CORRECTION: Retour au format JWT selon la documentation
         'Authorization': 'JWT ' + token
     }
 
