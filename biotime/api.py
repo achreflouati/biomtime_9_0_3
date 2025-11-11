@@ -30,7 +30,13 @@ def discover_biotime_employees():
         if biotime_employees:
             print("📋 Premiers employés BioTime:")
             for i, emp in enumerate(biotime_employees[:3]):
-                print(f"   {i+1}. Code: {emp.get('emp_code')} | Nom: {emp.get('emp_name')} | Dept: {emp.get('department', {}).get('dept_name', 'N/A')}")
+                first_name = emp.get('first_name', '')
+                last_name = emp.get('last_name', '')
+                full_name = f"{first_name} {last_name}".strip()
+                dept_name = "N/A"
+                if emp.get('department') and isinstance(emp.get('department'), dict):
+                    dept_name = emp.get('department', {}).get('dept_name', 'N/A')
+                print(f"   {i+1}. Code: {emp.get('emp_code')} | Nom: {full_name} | Dept: {dept_name}")
         
         # Récupérer tous les employés ERPNext avec device_id
         erpnext_employees = frappe.db.get_all(
@@ -138,11 +144,30 @@ def find_missing_employees(biotime_employees, erpnext_employees):
     for biotime_emp in biotime_employees:
         device_id = str(biotime_emp.get("emp_code", ""))
         if device_id and device_id not in erpnext_device_ids:
+            # Construire le nom complet depuis first_name et last_name
+            first_name = biotime_emp.get("first_name", "")
+            last_name = biotime_emp.get("last_name", "")
+            full_name = f"{first_name} {last_name}".strip() or f"Employee {device_id}"
+            
+            # Gérer le département
+            department = biotime_emp.get("department")
+            dept_name = ""
+            if department and isinstance(department, dict):
+                dept_name = department.get("dept_name", "")
+            
+            # Gérer la position  
+            position = biotime_emp.get("position")
+            position_name = ""
+            if position and isinstance(position, dict):
+                position_name = position.get("position_name", "")
+            
             missing_employees.append({
                 "device_id": device_id,
-                "name": biotime_emp.get("emp_name", ""),
-                "department": biotime_emp.get("department", {}).get("dept_name", ""),
-                "position": biotime_emp.get("position", {}).get("position_name", ""),
+                "name": full_name,
+                "first_name": first_name,
+                "last_name": last_name,
+                "department": dept_name,
+                "position": position_name,
                 "biotime_data": biotime_emp
             })
     
