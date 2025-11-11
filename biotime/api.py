@@ -275,19 +275,31 @@ def create_employee_in_biotime(employee_data, headers, main_url):
         response = requests.post(url, data=json.dumps(biotime_data), headers=headers, timeout=30)
         
         print(f"📡 Réponse BioTime Status: {response.status_code}")
-        print(f"📡 Réponse BioTime Body: {response.text}")
+        print(f"📡 Réponse BioTime Headers: {dict(response.headers)}")
+        print(f"📡 Réponse BioTime Body: {response.text[:500]}...")  # Limiter l'affichage
         
         if response.ok:
-            response_data = response.json()
-            biotime_emp_code = response_data.get("emp_code")
-            
-            # Mettre à jour ERPNext avec le device_id
-            if biotime_emp_code:
-                frappe.db.set_value("Employee", employee_data.name, "attendance_device_id", biotime_emp_code)
-                frappe.db.commit()
-                print(f"✅ Device ID mis à jour: {biotime_emp_code}")
-            
-            return True
+            # Vérifier si la réponse est du JSON valide
+            try:
+                response_data = response.json()
+                print(f"✅ Réponse JSON parsée: {response_data}")
+                
+                biotime_emp_code = response_data.get("emp_code")
+                # Mettre à jour ERPNext avec le device_id
+                if biotime_emp_code:
+                    frappe.db.set_value("Employee", employee_data.name, "attendance_device_id", biotime_emp_code)
+                    frappe.db.commit()
+                    print(f"✅ Device ID mis à jour: {biotime_emp_code}")
+                else:
+                    print("⚠️ Pas d'emp_code dans la réponse")
+                
+                return True
+                
+            except json.JSONDecodeError as json_err:
+                print(f"❌ Erreur parsing JSON: {str(json_err)}")
+                print(f"❌ Réponse brute: '{response.text}'")
+                return False
+                
         else:
             print(f"❌ Erreur création BioTime: {response.status_code} - {response.text}")
             return False
