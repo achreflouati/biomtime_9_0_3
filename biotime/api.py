@@ -252,16 +252,20 @@ def create_employee_in_biotime(employee_data, headers, main_url):
         # Récupérer l'ID de la première zone disponible (obligatoire)
         area_id = get_default_biotime_area_id(headers, main_url)
         
-        # ✅ CORRECTION: Structure selon la documentation API
+        # ✅ Structure minimale selon la documentation API officielle
         biotime_data = {
-            "emp_code": employee_data.name,  # Code employé unique
-            "first_name": employee_data.employee_name.split()[0] if employee_data.employee_name else "Unknown",
-            "last_name": " ".join(employee_data.employee_name.split()[1:]) if len(employee_data.employee_name.split()) > 1 else "",
-            # Département doit être un ID, pas un objet
-            "department": get_biotime_department_id(employee_data.department),
-            # Area obligatoire - utiliser la première zone disponible
-            "area": [area_id] if area_id else []
+            "emp_code": employee_data.name,  # Obligatoire : Code employé unique
+            "department": get_biotime_department_id(employee_data.department),  # Obligatoire : ID département  
+            "area": [area_id] if area_id else [1]  # Obligatoire : Array d'IDs de zones
         }
+        
+        # Ajouter les champs optionnels seulement s'ils existent
+        if employee_data.employee_name:
+            name_parts = employee_data.employee_name.split()
+            if len(name_parts) > 0:
+                biotime_data["first_name"] = name_parts[0]
+            if len(name_parts) > 1:
+                biotime_data["last_name"] = " ".join(name_parts[1:])
         
         # Ajouter le poste si disponible
         position_id = get_biotime_position_id(employee_data.designation)
@@ -270,9 +274,23 @@ def create_employee_in_biotime(employee_data, headers, main_url):
         
         print(f"📤 Données envoyées à BioTime: {json.dumps(biotime_data, indent=2)}")
         
-        # Envoyer vers BioTime
+        # ✅ Envoyer vers BioTime selon la documentation officielle
         url = f"{main_url}/personnel/api/employees/"
-        response = requests.post(url, data=json.dumps(biotime_data), headers=headers, timeout=30)
+        
+        print(f"🌐 URL: {url}")
+        print(f"🔑 Headers: {headers}")
+        
+        # Utiliser json= pour l'encodage automatique (plus fiable)
+        response = requests.post(url, json=biotime_data, headers=headers, timeout=30)
+                headers_alt['Content-Type'] = 'application/x-www-form-urlencoded'
+                
+                print("� Test 2: Envoi avec form-urlencoded")
+                response = requests.post(url, data=biotime_data, headers=headers_alt, timeout=30)
+                print(f"📡 Test 2 Status: {response.status_code}")
+            
+        except Exception as e:
+            print(f"❌ Erreur requête: {str(e)}")
+            return False
         
         print(f"📡 Réponse BioTime Status: {response.status_code}")
         print(f"📡 Réponse BioTime Headers: {dict(response.headers)}")
@@ -579,8 +597,8 @@ def get_auth_headers():
     token = get_tokan()
     return {
         'Content-Type': 'application/json',
-        # ✅ CORRECTION: Format correct selon la documentation officielle
-        'Authorization': 'Token ' + token
+        # ✅ CORRECTION: Retour au format JWT selon la documentation
+        'Authorization': 'JWT ' + token
     }
 
 @frappe.whitelist()
