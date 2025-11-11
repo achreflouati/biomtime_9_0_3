@@ -249,6 +249,19 @@ def sync_erpnext_employees_to_biotime():
 def create_employee_in_biotime(employee_data, headers, main_url):
     """Crée un employé dans BioTime selon la documentation officielle"""
     try:
+        # 🔄 Test avec token frais pour création (nouvelles permissions potentielles)
+        print("🔄 Génération token frais pour création...")
+        fresh_token = get_biotime_token()
+        if fresh_token:
+            headers_fresh = {
+                'Authorization': f'JWT {fresh_token}',
+                'Content-Type': 'application/json'
+            }
+            print(f"🆕 Fresh token: {fresh_token[:20]}...")
+            headers = headers_fresh  # Utiliser le token frais
+        else:
+            print("⚠️  Échec génération token frais, utilisation token initial")
+        
         # Récupérer l'ID de la première zone disponible (obligatoire)
         area_id = get_default_biotime_area_id(headers, main_url)
         
@@ -279,8 +292,16 @@ def create_employee_in_biotime(employee_data, headers, main_url):
         
         print(f"🌐 URL: {url}")
         print(f"🔑 Headers: {headers}")
+        print(f"🔐 Token debug: '{headers.get('Authorization', 'MISSING')}'")
+        print(f"📦 Data debug: {type(biotime_data)} - {biotime_data}")
+        
+        # Test préliminaire: vérifier si l'endpoint accepte nos requêtes
+        print("🧪 Test préliminaire: GET sur l'endpoint de création...")
+        test_response = requests.get(url, headers=headers, timeout=10)
+        print(f"🧪 GET Status: {test_response.status_code}")
         
         # Utiliser json= pour l'encodage automatique (plus fiable)
+        print("📡 Envoi POST pour création employé...")
         response = requests.post(url, json=biotime_data, headers=headers, timeout=30)
         
         print(f"📡 Réponse BioTime Status: {response.status_code}")
