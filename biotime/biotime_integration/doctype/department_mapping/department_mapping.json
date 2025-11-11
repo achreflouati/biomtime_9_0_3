@@ -5,10 +5,10 @@
  "doctype": "DocType",
  "editable_grid": 1,
  "engine": "InnoDB",
- "istable": 1,
  "field_order": [
   "biotime_department",
   "erpnext_department",
+  "column_break_1",
   "default_designation",
   "default_shift_type"
  ],
@@ -18,7 +18,8 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "BioTime Department",
-   "reqd": 1
+   "reqd": 1,
+   "unique": 1
   },
   {
    "fieldname": "erpnext_department",
@@ -27,6 +28,10 @@
    "label": "ERPNext Department",
    "options": "Department",
    "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
   },
   {
    "fieldname": "default_designation",
@@ -48,8 +53,35 @@
  "modified_by": "Administrator",
  "module": "BioTime Integration",
  "name": "Department Mapping",
+ "naming_rule": "By fieldname",
+ "naming_rule_fieldname": "biotime_department",
  "owner": "Administrator",
- "permissions": [],
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "HR Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
  "sort_field": "modified",
  "sort_order": "DESC",
  "track_changes": 1
