@@ -292,14 +292,37 @@ def create_employee_in_biotime(employee_data, headers, main_url):
         # Récupérer l'ID de la première zone disponible (obligatoire)
         area_id = get_default_biotime_area_id(headers, main_url)
         
-        # ✅ Structure minimale selon la documentation API officielle
+        # ✅ Structure COMPLÈTE selon la documentation BioTime 9.0 (correction erreur 500)
         biotime_data = {
-            "emp_code": employee_data.name,  # Obligatoire : Code employé unique
-            "department": get_biotime_department_id(employee_data.department),  # Obligatoire : ID département  
-            "area": [area_id] if area_id else [1]  # Obligatoire : Array d'IDs de zones
+            # Champs obligatoires de base
+            "emp_code": employee_data.name,  # Code employé unique
+            "department": get_biotime_department_id(employee_data.department),  # ID département  
+            "area": [area_id] if area_id else [1],  # Array d'IDs de zones
+            
+            # Champs souvent requis par BioTime (éviter erreur 500)
+            "hire_date": employee_data.date_of_joining.strftime('%Y-%m-%d') if employee_data.date_of_joining else "2023-01-01",
+            "verify_mode": 0,  # Mode de vérification par défaut
+            "card_no": "",  # Numéro de carte (vide par défaut)
+            "acc_group": 1,  # Groupe d'accès par défaut
+            "acc_timezone": 1,  # Fuseau horaire par défaut
+            "gender": "M",  # Genre par défaut
+            "birthday": "1990-01-01",  # Date de naissance par défaut
+            "address": "",  # Adresse vide
+            "postcode": "",  # Code postal vide
+            "office_tel": "",  # Téléphone bureau
+            "contact_tel": "",  # Téléphone contact
+            "mobile": "",  # Mobile
+            "national_no": "",  # Numéro national
+            "passport_no": "",  # Numéro passeport
+            "photo": "",  # Photo (vide)
+            "notes": f"Créé depuis ERPNext - {employee_data.name}",  # Notes
+            "privilege": 0,  # Privilèges par défaut
+            "password": "",  # Mot de passe vide
+            "is_active": True,  # Actif
+            "create_time": frappe.utils.now_datetime().strftime('%Y-%m-%d %H:%M:%S'),
         }
         
-        # Ajouter les champs optionnels seulement s'ils existent
+        # Ajouter les champs nom s'ils existent
         if employee_data.employee_name:
             name_parts = employee_data.employee_name.split()
             if len(name_parts) > 0:
@@ -307,12 +330,34 @@ def create_employee_in_biotime(employee_data, headers, main_url):
             if len(name_parts) > 1:
                 biotime_data["last_name"] = " ".join(name_parts[1:])
         
+        # Ajouter données existantes d'ERPNext si disponibles
+        if hasattr(employee_data, 'gender') and employee_data.gender:
+            biotime_data["gender"] = "M" if employee_data.gender == "Male" else "F"
+        
+        if hasattr(employee_data, 'date_of_birth') and employee_data.date_of_birth:
+            biotime_data["birthday"] = employee_data.date_of_birth.strftime('%Y-%m-%d')
+        
+        if hasattr(employee_data, 'cell_number') and employee_data.cell_number:
+            biotime_data["mobile"] = employee_data.cell_number
+        
         # Ajouter le poste si disponible
         position_id = get_biotime_position_id(employee_data.designation)
         if position_id:
             biotime_data["position"] = position_id
         
-        print(f"📤 Données envoyées à BioTime: {json.dumps(biotime_data, indent=2)}")
+        print(f"📤 Données complètes envoyées à BioTime:")
+        print(json.dumps(biotime_data, indent=2, ensure_ascii=False))
+        
+        # ✅ Validation données avant envoi (éviter erreur 500)
+        required_fields = ["emp_code", "department", "area", "hire_date"]
+        missing_fields = [field for field in required_fields if not biotime_data.get(field)]
+        
+        if missing_fields:
+            error_msg = f"❌ Champs obligatoires manquants: {missing_fields}"
+            print(error_msg)
+            return {"error": error_msg}
+        
+        print(f"✅ Validation OK - Tous les champs requis présents")
         
         # ✅ Envoyer vers BioTime selon la documentation officielle
         url = f"{main_url}/personnel/api/employees/"
@@ -383,6 +428,47 @@ def create_employee_in_biotime(employee_data, headers, main_url):
                 return False
                 
         else:
+            # Gestion spécialisée des erreurs selon le code
+            if response.status_code == 500:
+                print("❌ Erreur 500 - Problème serveur BioTime")
+                print("💡 Suggestions pour corriger l'erreur 500:")
+                print("   • Vérifiez que tous les champs obligatoires sont fournis")
+                print("   • Confirmez que l'ID département existe dans BioTime")
+                print("   • Vérifiez que l'area_id est valide")
+                print("   • Contrôlez que emp_code est unique")
+                
+                # Tentative avec données minimales
+                print("🔄 Tentative avec données minimales...")
+                minimal_data = {
+                    "emp_code": biotime_data["emp_code"],
+                    "department": biotime_data["department"], 
+                    "area": biotime_data["area"],
+                    "first_name": biotime_data.get("first_name", "Employé"),
+                    "last_name": biotime_data.get("last_name", "ERPNext")
+                }
+                
+                print(f"📤 Données minimales: {json.dumps(minimal_data, indent=2)}")
+                retry_response = requests.post(url, json=minimal_data, headers=headers, timeout=30)
+                
+                print(f"🔄 Retry Status: {retry_response.status_code}")
+                if retry_response.ok:
+                    try:
+                        result = retry_response.json()
+                        print("✅ Succès avec données minimales!")
+                        
+                        device_id = result.get("emp_code") or str(result.get("id"))
+                        if device_id:
+                            frappe.db.set_value("Employee", employee_data.name, "attendance_device_id", device_id)
+                            frappe.db.commit()
+                            print(f"✅ Device ID mis à jour: {device_id}")
+                            return True
+                            
+                    except json.JSONDecodeError:
+                        print("✅ Succès avec données minimales (réponse non-JSON)")
+                        return True
+                else:
+                    print(f"❌ Échec même avec données minimales: {retry_response.status_code}")
+                    
             print(f"❌ Erreur création BioTime: {response.status_code} - {response.text}")
             return False
             
