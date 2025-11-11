@@ -15,6 +15,10 @@
   "password",
   "employee_management_section",
   "discover_employees",
+  "sync_to_biotime",
+  "column_break_emp",
+  "test_connection",
+  "debug_data",
   "fetch_data_for_a_custom_date_section",
   "date",
   "fetch"
@@ -67,6 +71,25 @@
    "fieldname": "discover_employees",
    "fieldtype": "Button",
    "label": "Discover New Employees"
+  },
+  {
+   "fieldname": "sync_to_biotime",
+   "fieldtype": "Button",
+   "label": "Sync to BioTime"
+  },
+  {
+   "fieldname": "column_break_emp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "test_connection",
+   "fieldtype": "Button",
+   "label": "Test Connection"
+  },
+  {
+   "fieldname": "debug_data",
+   "fieldtype": "Button",
+   "label": "Debug Raw Data"
   },
   {
    "fieldname": "fetch_data_for_a_custom_date_section",

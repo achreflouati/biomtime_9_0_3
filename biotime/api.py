@@ -22,8 +22,20 @@ def discover_biotime_employees():
     }
     
     try:
+        # Console de débogage
+        print("🔍 DEBUG: Début de découverte des employés BioTime")
+        print(f"🌐 URL BioTime: {main_url}")
+        print(f"🔑 Token récupéré: {'✅ Oui' if tokan else '❌ Non'}")
+        
         # Récupérer tous les employés depuis BioTime
         biotime_employees = fetch_all_biotime_employees(headers, main_url)
+        print(f"👥 Employés BioTime trouvés: {len(biotime_employees)}")
+        
+        # Afficher les premiers employés pour débogage
+        if biotime_employees:
+            print("📋 Premiers employés BioTime:")
+            for i, emp in enumerate(biotime_employees[:3]):
+                print(f"   {i+1}. Code: {emp.get('emp_code')} | Nom: {emp.get('emp_name')} | Dept: {emp.get('department', {}).get('dept_name', 'N/A')}")
         
         # Récupérer tous les employés ERPNext avec device_id
         erpnext_employees = frappe.db.get_all(
@@ -31,12 +43,27 @@ def discover_biotime_employees():
             fields=["name", "employee_name", "attendance_device_id"],
             filters={"attendance_device_id": ["!=", ""]}
         )
+        print(f"👥 Employés ERPNext avec device_id: {len(erpnext_employees)}")
+        
+        # Afficher les device_ids ERPNext pour débogage
+        if erpnext_employees:
+            device_ids = [emp.attendance_device_id for emp in erpnext_employees if emp.attendance_device_id]
+            print(f"🔢 Device IDs ERPNext: {device_ids[:10]}...")  # Afficher les 10 premiers
         
         # Identifier les employés manquants
         missing_employees = find_missing_employees(biotime_employees, erpnext_employees)
+        print(f"❓ Employés manquants trouvés: {len(missing_employees)}")
+        
+        if missing_employees:
+            print("📝 Employés manquants détaillés:")
+            for i, emp in enumerate(missing_employees[:5]):  # Afficher les 5 premiers
+                print(f"   {i+1}. Device ID: {emp['device_id']} | Nom: {emp['name']} | Dept: {emp['department']}")
         
         # Sauvegarder pour validation utilisateur
         save_discovered_employees(missing_employees)
+        
+        # Console de fin
+        print("✅ Découverte terminée avec succès")
         
         return {
             "status": "success",
@@ -47,35 +74,65 @@ def discover_biotime_employees():
         }
         
     except Exception as e:
+        print(f"❌ ERREUR lors de la découverte: {str(e)}")
         frappe.log_error(message=str(e), title="Erreur Découverte Employés")
         return {"status": "error", "message": str(e)}
 
 def fetch_all_biotime_employees(headers, main_url):
-    """Récupère tous les employés depuis BioTime avec pagination"""
+    """Récupère tous les employés depuis BioTime avec pagination et débogage"""
     employees_list = []
     is_next_page = True
     url = f"{main_url}/personnel/api/employees/"
+    page_count = 0
+    
+    print(f"🔗 URL initiale: {url}")
     
     while is_next_page:
+        page_count += 1
+        print(f"📄 Traitement page {page_count}...")
+        
         try:
             response = requests.get(url, headers=headers, timeout=30)
+            print(f"📡 Status Code: {response.status_code}")
+            
             if response.ok:
                 res = response.json()
                 employees = res.get("data", [])
+                total_count = res.get("count", 0)
+                
+                print(f"👥 Page {page_count}: {len(employees)} employés récupérés")
+                print(f"📊 Total dans BioTime: {total_count}")
+                
+                # Afficher structure d'un employé pour débogage
+                if employees and page_count == 1:
+                    sample_emp = employees[0]
+                    print(f"📋 Structure employé exemple:")
+                    print(f"   - emp_code: {sample_emp.get('emp_code')}")
+                    print(f"   - emp_name: {sample_emp.get('emp_name')}")
+                    print(f"   - department: {sample_emp.get('department')}")
+                    print(f"   - position: {sample_emp.get('position')}")
+                    print(f"   - Toutes les clés: {list(sample_emp.keys())}")
+                
                 employees_list.extend(employees)
                 url = res.get("next")
                 if not url:
                     is_next_page = False
+                    print("✅ Dernière page atteinte")
+                else:
+                    print(f"➡️ Page suivante: {url}")
             else:
+                print(f"❌ Erreur HTTP {response.status_code}: {response.text}")
                 frappe.log_error(
-                    message=f"Erreur API BioTime: {response.status_code}", 
+                    message=f"Erreur API BioTime: {response.status_code} - {response.text}", 
                     title="Erreur Récupération Employés"
                 )
                 break
         except Exception as e:
+            print(f"❌ Exception page {page_count}: {str(e)}")
             frappe.log_error(message=str(e), title="Erreur API BioTime")
             break
     
+    print(f"✅ Total employés récupérés: {len(employees_list)} sur {page_count} pages")
     return employees_list
 
 def find_missing_employees(biotime_employees, erpnext_employees):
@@ -112,6 +169,219 @@ def save_discovered_employees(missing_employees):
         discovery_doc.save()
     
     frappe.db.commit()
+
+@frappe.whitelist()
+def sync_erpnext_employees_to_biotime():
+    """Synchronise les employés ERPNext vers BioTime"""
+    tokan = get_tokan()
+    main_url = get_url()
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'JWT ' + tokan
+    }
+    
+    try:
+        print("🔄 DEBUG: Début synchronisation ERPNext vers BioTime")
+        
+        # Récupérer employés ERPNext sans device_id (nouveaux employés)
+        new_employees = frappe.db.get_all(
+            "Employee",
+            fields=["name", "employee_name", "department", "designation", "employment_type"],
+            filters=[
+                ["status", "=", "Active"],
+                ["attendance_device_id", "in", [None, ""]]
+            ]
+        )
+        
+        print(f"👥 Employés ERPNext sans device_id: {len(new_employees)}")
+        
+        if not new_employees:
+            return {
+                "status": "success",
+                "message": "Aucun nouvel employé à synchroniser",
+                "created_count": 0
+            }
+        
+        created_count = 0
+        failed_count = 0
+        
+        for emp in new_employees[:5]:  # Limiter à 5 pour test
+            print(f"🆕 Création employé: {emp.employee_name}")
+            
+            success = create_employee_in_biotime(emp, headers, main_url)
+            if success:
+                created_count += 1
+                print(f"✅ Employé créé avec succès: {emp.employee_name}")
+            else:
+                failed_count += 1
+                print(f"❌ Échec création: {emp.employee_name}")
+        
+        print(f"📊 Résumé: {created_count} créés, {failed_count} échecs")
+        
+        return {
+            "status": "success",
+            "created_count": created_count,
+            "failed_count": failed_count,
+            "message": f"Synchronisation terminée: {created_count} employés créés, {failed_count} échecs"
+        }
+        
+    except Exception as e:
+        print(f"❌ ERREUR synchronisation: {str(e)}")
+        frappe.log_error(message=str(e), title="Erreur Sync ERPNext vers BioTime")
+        return {"status": "error", "message": str(e)}
+
+def create_employee_in_biotime(employee_data, headers, main_url):
+    """Crée un employé dans BioTime"""
+    try:
+        # Préparer les données pour BioTime
+        biotime_data = {
+            "emp_code": employee_data.name,  # Utiliser le nom ERPNext comme code
+            "emp_name": employee_data.employee_name,
+            "department": map_department_to_biotime(employee_data.department),
+            "position": map_designation_to_biotime(employee_data.designation),
+            "emp_type": map_employment_type_to_biotime(employee_data.employment_type),
+            "enable": True,
+            "create_time": frappe.utils.now()
+        }
+        
+        print(f"📤 Données envoyées à BioTime: {json.dumps(biotime_data, indent=2)}")
+        
+        # Envoyer vers BioTime
+        url = f"{main_url}/personnel/api/employees/"
+        response = requests.post(url, data=json.dumps(biotime_data), headers=headers, timeout=30)
+        
+        print(f"📡 Réponse BioTime Status: {response.status_code}")
+        print(f"📡 Réponse BioTime Body: {response.text}")
+        
+        if response.ok:
+            response_data = response.json()
+            biotime_emp_code = response_data.get("emp_code")
+            
+            # Mettre à jour ERPNext avec le device_id
+            if biotime_emp_code:
+                frappe.db.set_value("Employee", employee_data.name, "attendance_device_id", biotime_emp_code)
+                frappe.db.commit()
+                print(f"✅ Device ID mis à jour: {biotime_emp_code}")
+            
+            return True
+        else:
+            print(f"❌ Erreur création BioTime: {response.status_code} - {response.text}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Exception création BioTime: {str(e)}")
+        frappe.log_error(
+            message=f"Erreur création employé {employee_data.employee_name}: {str(e)}",
+            title="Erreur Création BioTime"
+        )
+        return False
+
+def map_department_to_biotime(erpnext_dept):
+    """Map département ERPNext vers BioTime"""
+    if not erpnext_dept:
+        return None
+    
+    # Chercher dans les mappings
+    mapping = frappe.db.get_value(
+        "Department Mapping",
+        {"erpnext_department": erpnext_dept},
+        "biotime_department"
+    )
+    
+    if mapping:
+        return {"dept_name": mapping}
+    
+    # Retourner tel quel si pas de mapping
+    return {"dept_name": erpnext_dept}
+
+def map_designation_to_biotime(erpnext_designation):
+    """Map désignation ERPNext vers BioTime"""
+    if not erpnext_designation:
+        return None
+    return {"position_name": erpnext_designation}
+
+def map_employment_type_to_biotime(erpnext_emp_type):
+    """Map type d'emploi ERPNext vers BioTime"""
+    if not erpnext_emp_type:
+        return "Full-time"
+    
+    mapping = {
+        "Full-time": "Full-time",
+        "Part-time": "Part-time",
+        "Contract": "Contract",
+        "Intern": "Intern"
+    }
+    
+    return mapping.get(erpnext_emp_type, "Full-time")
+
+@frappe.whitelist()
+def debug_biotime_raw_data():
+    """Fonction de débogage pour voir les données brutes BioTime"""
+    tokan = get_tokan()
+    main_url = get_url()
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'JWT ' + tokan
+    }
+    
+    try:
+        print("🔍 === DÉBOGAGE DONNÉES BIOTIME ===")
+        print(f"🌐 URL: {main_url}")
+        print(f"🔑 Token: {tokan[:20]}..." if tokan else "❌ Pas de token")
+        
+        # Test plusieurs endpoints
+        endpoints = [
+            "/personnel/api/employees/",
+            "/personnel/api/departments/", 
+            "/personnel/api/positions/",
+            "/iclock/api/transactions/"
+        ]
+        
+        for endpoint in endpoints:
+            print(f"\n📡 Test endpoint: {endpoint}")
+            url = f"{main_url}{endpoint}?page_size=2"
+            
+            try:
+                response = requests.get(url, headers=headers, timeout=10)
+                print(f"   Status: {response.status_code}")
+                
+                if response.ok:
+                    data = response.json()
+                    print(f"   Structure: {list(data.keys()) if isinstance(data, dict) else type(data)}")
+                    
+                    if isinstance(data, dict) and 'data' in data:
+                        print(f"   Count: {data.get('count', 'N/A')}")
+                        if data['data']:
+                            print(f"   Premier élément clés: {list(data['data'][0].keys())}")
+                            print(f"   Premier élément: {json.dumps(data['data'][0], indent=4, ensure_ascii=False)}")
+                else:
+                    print(f"   Erreur: {response.text}")
+                    
+            except Exception as e:
+                print(f"   Exception: {str(e)}")
+        
+        # Test récupération employés complet
+        print(f"\n👥 === TEST RÉCUPÉRATION EMPLOYÉS COMPLET ===")
+        employees = fetch_all_biotime_employees(headers, main_url)
+        
+        if employees:
+            print(f"✅ Total employés récupérés: {len(employees)}")
+            print(f"📋 Structure premier employé:")
+            emp_example = employees[0]
+            for key, value in emp_example.items():
+                print(f"   {key}: {value}")
+        
+        return {
+            "status": "success", 
+            "message": "Débogage terminé, vérifiez la console du serveur",
+            "employees_count": len(employees) if employees else 0
+        }
+        
+    except Exception as e:
+        print(f"❌ ERREUR DÉBOGAGE: {str(e)}")
+        return {"status": "error", "message": str(e)}
 
 def get_tokan():
     doc = frappe.get_single("BioTime Setting")
