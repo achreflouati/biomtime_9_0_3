@@ -79,13 +79,9 @@ class BioTimeSetting(Document):
         """Teste la connexion avec BioTime"""
         try:
             print("🔍 Test de connexion BioTime...")
-            tokan = get_tokan()
+            from biotime.api import get_auth_headers
+            headers = get_auth_headers()
             main_url = get_url()
-            
-            headers = {
-                'Content-Type': 'application/json',
-                'Authorization': 'JWT ' + tokan
-            }
             
             # Test simple: récupérer les infos du serveur
             response = requests.get(f"{main_url}/personnel/api/employees/?page_size=1", headers=headers, timeout=10)
