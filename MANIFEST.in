@@ -1,0 +1,18 @@
+include MANIFEST.in
+include requirements.txt
+include *.json
+include *.md
+include *.py
+include *.txt
+recursive-include biotime *.css
+recursive-include biotime *.csv
+recursive-include biotime *.html
+recursive-include biotime *.ico
+recursive-include biotime *.js
+recursive-include biotime *.json
+recursive-include biotime *.md
+recursive-include biotime *.png
+recursive-include biotime *.py
+recursive-include biotime *.svg
+recursive-include biotime *.txt
+recursive-exclude biotime *.pyc

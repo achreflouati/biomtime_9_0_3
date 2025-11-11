@@ -1,0 +1,97 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2023-10-17 15:18:20.685812",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "biometric_server_date_section",
+  "url",
+  "column_break_tynff",
+  "actions_section",
+  "fetch_transactions",
+  "user_name",
+  "password",
+  "fetch_data_for_a_custom_date_section",
+  "date",
+  "fetch"
+ ],
+ "fields": [
+  {
+   "fieldname": "biometric_server_date_section",
+   "fieldtype": "Section Break",
+   "label": "Biometric Server Date"
+  },
+  {
+   "fieldname": "url",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "URL",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_tynff",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "actions_section",
+   "fieldtype": "Section Break",
+   "label": "Actions"
+  },
+  {
+   "fieldname": "fetch_transactions",
+   "fieldtype": "Button",
+   "label": "Fetch Transactions"
+  },
+  {
+   "fieldname": "user_name",
+   "fieldtype": "Data",
+   "label": "User Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "password",
+   "fieldtype": "Password",
+   "label": "Password",
+   "reqd": 1
+  },
+  {
+   "fieldname": "fetch_data_for_a_custom_date_section",
+   "fieldtype": "Section Break",
+   "label": "Fetch data for a custom date"
+  },
+  {
+   "fieldname": "date",
+   "fieldtype": "Date",
+   "label": "Date"
+  },
+  {
+   "fieldname": "fetch",
+   "fieldtype": "Button",
+   "label": "Fetch Transactions"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "issingle": 1,
+ "links": [],
+ "modified": "2024-02-11 12:23:07.760860",
+ "modified_by": "Administrator",
+ "module": "BioTime Integration",
+ "name": "BioTime Setting",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "print": 1,
+   "read": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC"
+}
