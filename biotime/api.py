@@ -249,6 +249,9 @@ def sync_erpnext_employees_to_biotime():
 def create_employee_in_biotime(employee_data, headers, main_url):
     """Crée un employé dans BioTime selon la documentation officielle"""
     try:
+        # Récupérer l'ID de la première zone disponible (obligatoire)
+        area_id = get_default_biotime_area_id(headers, main_url)
+        
         # ✅ CORRECTION: Structure selon la documentation API
         biotime_data = {
             "emp_code": employee_data.name,  # Code employé unique
@@ -256,6 +259,8 @@ def create_employee_in_biotime(employee_data, headers, main_url):
             "last_name": " ".join(employee_data.employee_name.split()[1:]) if len(employee_data.employee_name.split()) > 1 else "",
             # Département doit être un ID, pas un objet
             "department": get_biotime_department_id(employee_data.department),
+            # Area obligatoire - utiliser la première zone disponible
+            "area": [area_id] if area_id else []
         }
         
         # Ajouter le poste si disponible
@@ -323,6 +328,29 @@ def get_biotime_position_id(erpnext_designation):
     # TODO: Implémenter la recherche de poste via API
     # Pour l'instant, retournons None
     return None
+
+def get_default_biotime_area_id(headers, main_url):
+    """Récupère l'ID de la première zone BioTime disponible"""
+    try:
+        # Récupérer les zones disponibles
+        url = f"{main_url}/personnel/api/areas/"
+        response = requests.get(url, headers=headers, timeout=10)
+        
+        if response.ok:
+            data = response.json()
+            areas = data.get('data', [])
+            if areas and len(areas) > 0:
+                area_id = areas[0].get('id')
+                print(f"🏢 Zone par défaut sélectionnée: ID {area_id} - {areas[0].get('area_name', 'Unknown')}")
+                return area_id
+        
+        print("⚠️ Aucune zone trouvée, utilisation de zone par défaut ID 1")
+        return 1
+        
+    except Exception as e:
+        print(f"❌ Erreur récupération zone: {str(e)}")
+        # Retourner zone par défaut en cas d'erreur
+        return 1
 
 
 

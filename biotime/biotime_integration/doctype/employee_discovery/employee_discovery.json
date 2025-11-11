@@ -75,7 +75,7 @@
    "default": "Pending Validation",
    "in_list_view": 1,
    "label": "Status",
-   "options": "Pending Validation\\nValidated\\nRejected\\nEmployee Created",
+   "options": "Pending Validation\nValidated\nRejected\nEmployee Created",
    "reqd": 1
   },
   {
