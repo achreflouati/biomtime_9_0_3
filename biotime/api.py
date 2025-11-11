@@ -330,7 +330,7 @@ def get_biotime_position_id(erpnext_designation):
     return None
 
 def get_default_biotime_area_id(headers, main_url):
-    """Récupère l'ID de la première zone BioTime disponible"""
+    """Récupère l'ID d'une zone BioTime appropriée (évite 'Pas autorisé')"""
     try:
         # Récupérer les zones disponibles
         url = f"{main_url}/personnel/api/areas/"
@@ -339,12 +339,26 @@ def get_default_biotime_area_id(headers, main_url):
         if response.ok:
             data = response.json()
             areas = data.get('data', [])
+            
             if areas and len(areas) > 0:
+                # Priorité 1: Chercher une zone qui n'est PAS "Pas autorisé"
+                for area in areas:
+                    area_name = area.get('area_name', '').lower()
+                    if area_name not in ['pas autorisé', 'pas autorise', 'unauthorized', 'restricted']:
+                        area_id = area.get('id')
+                        print(f"🏢 Zone préférée sélectionnée: ID {area_id} - {area.get('area_name', 'Unknown')}")
+                        return area_id
+                
+                # Priorité 2: Si toutes les zones sont restrictives, utiliser la première quand même
                 area_id = areas[0].get('id')
-                print(f"🏢 Zone par défaut sélectionnée: ID {area_id} - {areas[0].get('area_name', 'Unknown')}")
+                area_name = areas[0].get('area_name', 'Unknown')
+                print(f"⚠️ Seule zone disponible: ID {area_id} - {area_name}")
+                print(f"🔍 Toutes les zones disponibles:")
+                for i, area in enumerate(areas[:5]):  # Afficher les 5 premières
+                    print(f"   {i+1}. ID {area.get('id')} - {area.get('area_name', 'N/A')}")
                 return area_id
         
-        print("⚠️ Aucune zone trouvée, utilisation de zone par défaut ID 1")
+        print("⚠️ Aucune zone trouvée via API, utilisation de zone par défaut ID 1")
         return 1
         
     except Exception as e:
