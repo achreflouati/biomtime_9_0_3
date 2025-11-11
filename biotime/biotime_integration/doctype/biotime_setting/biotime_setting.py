@@ -7,7 +7,7 @@ import requests
 import json
 from frappe.model.document import Document
 from frappe import enqueue
-from biotime.api import fetch_transactions, fetch, discover_biotime_employees, sync_erpnext_employees_to_biotime, get_tokan, get_url, debug_biotime_raw_data, test_authentication_only
+from biotime.api import fetch_transactions, fetch, discover_biotime_employees, sync_erpnext_employees_to_biotime, get_tokan, get_url, debug_biotime_raw_data, test_authentication_only, diagnose_biotime_auth_issue
 
 
 class BioTimeSetting(Document):
@@ -137,6 +137,41 @@ class BioTimeSetting(Document):
             title="Débogage BioTime",
             indicator="blue"
         )
+
+    @frappe.whitelist()
+    def diagnose_auth_issue(self):
+        """Diagnostic avancé du problème d'authentification"""
+        result = diagnose_biotime_auth_issue()
+        if result.get("status") == "success":
+            working_format = result.get('working_format', 'Aucun')
+            working_endpoint = result.get('working_endpoint', 'Aucun')
+            
+            frappe.msgprint(
+                f"""
+                <b>🔬 Diagnostic Authentification</b><br><br>
+                <b>✅ Format d'auth fonctionnel:</b> {working_format}<br>
+                <b>✅ Endpoint fonctionnel:</b> {working_endpoint}<br><br>
+                <b>💡 Recommandations:</b><br>
+                • Vérifiez les logs de la console pour plus de détails<br>
+                • Testez la création d'employés avec ces paramètres<br><br>
+                Message: {result.get('message', '')}
+                """,
+                title="Diagnostic Authentification",
+                indicator="green"
+            )
+        else:
+            frappe.msgprint(
+                f"""
+                <b>❌ Échec Diagnostic</b><br><br>
+                Erreur: {result.get('message', '')}<br><br>
+                <b>💡 Actions suggérées:</b><br>
+                • Vérifiez la configuration URL et credentials<br>
+                • Confirmez que le serveur BioTime est accessible<br>
+                • Consultez les logs du serveur pour plus de détails
+                """,
+                title="Diagnostic Authentification",
+                indicator="red"
+            )
 
     @frappe.whitelist()
     def test_auth_only(self):

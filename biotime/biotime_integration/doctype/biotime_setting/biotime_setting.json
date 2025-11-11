@@ -20,6 +20,7 @@
   "test_connection",
   "debug_data",
   "test_auth",
+  "diagnose_auth",
   "fetch_data_for_a_custom_date_section",
   "date",
   "fetch"
@@ -96,6 +97,11 @@
    "fieldname": "test_auth",
    "fieldtype": "Button",
    "label": "Test Auth Only"
+  },
+  {
+   "fieldname": "diagnose_auth",
+   "fieldtype": "Button",
+   "label": "🔬 Diagnose Auth Issue"
   },
   {
    "fieldname": "fetch_data_for_a_custom_date_section",

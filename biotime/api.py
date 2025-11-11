@@ -253,12 +253,39 @@ def create_employee_in_biotime(employee_data, headers, main_url):
         print("🔄 Génération token frais pour création...")
         fresh_token = get_tokan()  # ✅ Correction du nom de fonction
         if fresh_token:
-            headers_fresh = {
-                'Authorization': f'JWT {fresh_token}',
-                'Content-Type': 'application/json'
-            }
-            print(f"🆕 Fresh token: {fresh_token[:20]}...")
-            headers = headers_fresh  # Utiliser le token frais
+            # Test plusieurs formats de JWT
+            possible_headers = [
+                {'Authorization': f'JWT {fresh_token}', 'Content-Type': 'application/json'},
+                {'Authorization': f'Bearer {fresh_token}', 'Content-Type': 'application/json'},
+                {'Authorization': f'Token {fresh_token}', 'Content-Type': 'application/json'},
+            ]
+            
+            # Test chaque format rapidement sur GET pour voir lequel fonctionne
+            test_url = f"{main_url}/personnel/api/employees/?page_size=1"
+            working_headers = None
+            
+            for i, test_headers in enumerate(possible_headers):
+                format_name = test_headers['Authorization'].split(' ')[0]
+                print(f"🧪 Test format {format_name} sur GET...")
+                
+                try:
+                    test_resp = requests.get(test_url, headers=test_headers, timeout=5)
+                    print(f"   GET {format_name}: {test_resp.status_code}")
+                    
+                    if test_resp.ok:
+                        print(f"✅ Format {format_name} fonctionne pour GET!")
+                        working_headers = test_headers
+                        break
+                        
+                except Exception as e:
+                    print(f"   Erreur {format_name}: {str(e)[:50]}")
+            
+            if working_headers:
+                headers = working_headers
+                print(f"🆕 Utilisation format validé: {headers['Authorization'].split(' ')[0]}")
+            else:
+                headers = possible_headers[0]  # JWT par défaut
+                print("⚠️ Aucun format validé, utilisation JWT par défaut")
         else:
             print("⚠️  Échec génération token frais, utilisation token initial")
         
@@ -299,6 +326,28 @@ def create_employee_in_biotime(employee_data, headers, main_url):
         print("🧪 Test préliminaire: GET sur l'endpoint de création...")
         test_response = requests.get(url, headers=headers, timeout=10)
         print(f"🧪 GET Status: {test_response.status_code}")
+        
+        if test_response.status_code == 401:
+            print("❌ GET échoue aussi avec 401, problème d'authentification de base")
+            print(f"   Headers testés: {headers}")
+            print(f"   WWW-Authenticate: {test_response.headers.get('WWW-Authenticate', 'Non présent')}")
+            
+            # Test avec token complètement nouveau
+            print("🔄 Test avec token totalement frais...")
+            newest_token = get_tokan()
+            if newest_token and newest_token != headers.get('Authorization', '').replace('JWT ', ''):
+                headers['Authorization'] = f'JWT {newest_token}'
+                print(f"🆕 Nouveau token: {newest_token[:20]}...")
+                
+                retry_test = requests.get(url, headers=headers, timeout=5)
+                print(f"   Retry GET: {retry_test.status_code}")
+                
+                if retry_test.status_code == 401:
+                    print("❌ Même avec nouveau token, problème persiste")
+                    print("💡 Le problème pourrait être:")
+                    print("   • Permissions utilisateur insuffisantes")
+                    print("   • Format d'URL incorrect")
+                    print("   • Configuration serveur BioTime")
         
         # Utiliser json= pour l'encodage automatique (plus fiable)
         print("📡 Envoi POST pour création employé...")
@@ -530,6 +579,139 @@ def test_authentication_only():
             
     except Exception as e:
         print(f"❌ Exception test auth: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
+@frappe.whitelist()
+def diagnose_biotime_auth_issue():
+    """Diagnostic avancé du problème d'authentification BioTime"""
+    try:
+        print("🔬 === DIAGNOSTIC AUTHENTIFICATION BIOTIME ===")
+        
+        doc = frappe.get_single("BioTime Setting")
+        print(f"🌐 URL BioTime: {doc.url}")
+        print(f"👤 Utilisateur: {doc.user_name}")
+        
+        # Test 1: Récupération token
+        print("\n📤 Test 1: Récupération token...")
+        token = get_tokan()
+        if not token:
+            return {"status": "error", "message": "Impossible de récupérer le token"}
+        print(f"✅ Token: {token[:20]}...")
+        
+        # Test 2: URL de base accessible ?
+        print("\n🌐 Test 2: Accessibilité serveur...")
+        try:
+            base_response = requests.get(doc.url, timeout=5)
+            print(f"   Status: {base_response.status_code}")
+            print(f"   Serveur: {base_response.headers.get('Server', 'Unknown')}")
+        except Exception as e:
+            print(f"   Erreur: {str(e)}")
+            
+        # Test 3: Différents formats d'authentification
+        print("\n🔑 Test 3: Formats d'authentification...")
+        test_url = f"{doc.url}/personnel/api/employees/?page_size=1"
+        
+        auth_tests = [
+            ('JWT standard', f'JWT {token}'),
+            ('Bearer', f'Bearer {token}'),
+            ('Token', f'Token {token}'),
+            ('JWT minuscule', f'jwt {token}'),
+            ('Token seul', token),
+        ]
+        
+        working_format = None
+        for name, auth_value in auth_tests:
+            headers = {
+                'Authorization': auth_value,
+                'Content-Type': 'application/json'
+            }
+            
+            try:
+                resp = requests.get(test_url, headers=headers, timeout=5)
+                print(f"   {name}: Status {resp.status_code}")
+                
+                if resp.ok:
+                    working_format = (name, auth_value)
+                    print(f"   ✅ FORMAT FONCTIONNEL: {name}")
+                    break
+                elif resp.status_code != 401:
+                    print(f"      Réponse: {resp.text[:100]}")
+                    
+            except Exception as e:
+                print(f"   {name}: Erreur {str(e)[:50]}")
+        
+        # Test 4: Endpoints alternatifs
+        print("\n🔍 Test 4: Endpoints alternatifs...")
+        if working_format:
+            headers = {'Authorization': working_format[1], 'Content-Type': 'application/json'}
+        else:
+            headers = {'Authorization': f'JWT {token}', 'Content-Type': 'application/json'}
+            
+        endpoints = [
+            '/personnel/api/employees/',
+            '/api/employees/',
+            '/employees/',
+            '/personnel/employees/',
+            '/iclock/api/employees/',
+        ]
+        
+        working_endpoint = None
+        for endpoint in endpoints:
+            url = doc.url + endpoint
+            try:
+                resp = requests.get(url + '?page_size=1', headers=headers, timeout=5)
+                print(f"   {endpoint}: Status {resp.status_code}")
+                
+                if resp.ok:
+                    working_endpoint = endpoint
+                    print(f"   ✅ ENDPOINT FONCTIONNEL: {endpoint}")
+                    
+            except Exception as e:
+                print(f"   {endpoint}: Erreur {str(e)[:50]}")
+        
+        # Test 5: Permissions utilisateur
+        print("\n👥 Test 5: Vérification permissions...")
+        if working_format and working_endpoint:
+            headers = {'Authorization': working_format[1], 'Content-Type': 'application/json'}
+            url = doc.url + working_endpoint
+            
+            # Test GET (lecture)
+            try:
+                get_resp = requests.get(url + '?page_size=1', headers=headers, timeout=5)
+                print(f"   GET permissions: {get_resp.status_code}")
+            except:
+                print("   GET permissions: Erreur")
+            
+            # Test OPTIONS (métadonnées)
+            try:
+                options_resp = requests.options(url, headers=headers, timeout=5)
+                print(f"   OPTIONS permissions: {options_resp.status_code}")
+                allowed = options_resp.headers.get('Allow', 'Non spécifié')
+                print(f"   Méthodes autorisées: {allowed}")
+            except:
+                print("   OPTIONS permissions: Erreur")
+        
+        # Résumé
+        print("\n📋 === RÉSUMÉ DIAGNOSTIC ===")
+        if working_format:
+            print(f"✅ Format auth fonctionnel: {working_format[0]}")
+        else:
+            print("❌ Aucun format d'auth fonctionnel")
+            
+        if working_endpoint:
+            print(f"✅ Endpoint fonctionnel: {working_endpoint}")
+        else:
+            print("❌ Aucun endpoint fonctionnel")
+        
+        return {
+            "status": "success" if working_format and working_endpoint else "error",
+            "working_format": working_format[0] if working_format else None,
+            "working_endpoint": working_endpoint,
+            "message": "Diagnostic terminé, vérifiez la console"
+        }
+        
+    except Exception as e:
+        print(f"❌ Erreur diagnostic: {str(e)}")
         return {"status": "error", "message": str(e)}
 
 @frappe.whitelist()

@@ -121,5 +121,22 @@ frappe.ui.form.on('BioTime Setting', {
 				}
 			},
 		});
+	},
+
+	diagnose_auth: function (frm) {
+		frappe.show_alert({
+			message: __('Running comprehensive auth diagnosis...'),
+			indicator: 'blue'
+		});
+		
+		frappe.call({
+			method: "diagnose_auth_issue", 
+			doc: frm.doc,
+			callback: function (r) {
+				if (!r.exc) {
+					console.log("Auth diagnosis completed");
+				}
+			},
+		});
 	}
 });
