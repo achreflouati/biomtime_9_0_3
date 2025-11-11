@@ -13,19 +13,14 @@ from datetime import datetime
 @frappe.whitelist()
 def discover_biotime_employees():
     """Découvre les employés présents dans BioTime mais absents dans ERPNext"""
-    tokan = get_tokan()
     main_url = get_url()
-    
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'JWT ' + tokan
-    }
+    headers = get_auth_headers()
     
     try:
         # Console de débogage
         print("🔍 DEBUG: Début de découverte des employés BioTime")
         print(f"🌐 URL BioTime: {main_url}")
-        print(f"🔑 Token récupéré: {'✅ Oui' if tokan else '❌ Non'}")
+        print(f"🔑 Headers auth: {headers}")
         
         # Récupérer tous les employés depuis BioTime
         biotime_employees = fetch_all_biotime_employees(headers, main_url)
@@ -173,13 +168,8 @@ def save_discovered_employees(missing_employees):
 @frappe.whitelist()
 def sync_erpnext_employees_to_biotime():
     """Synchronise les employés ERPNext vers BioTime"""
-    tokan = get_tokan()
     main_url = get_url()
-    
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'JWT ' + tokan
-    }
+    headers = get_auth_headers()
     
     try:
         print("🔄 DEBUG: Début synchronisation ERPNext vers BioTime")
@@ -232,18 +222,21 @@ def sync_erpnext_employees_to_biotime():
         return {"status": "error", "message": str(e)}
 
 def create_employee_in_biotime(employee_data, headers, main_url):
-    """Crée un employé dans BioTime"""
+    """Crée un employé dans BioTime selon la documentation officielle"""
     try:
-        # Préparer les données pour BioTime
+        # ✅ CORRECTION: Structure selon la documentation API
         biotime_data = {
-            "emp_code": employee_data.name,  # Utiliser le nom ERPNext comme code
-            "emp_name": employee_data.employee_name,
-            "department": map_department_to_biotime(employee_data.department),
-            "position": map_designation_to_biotime(employee_data.designation),
-            "emp_type": map_employment_type_to_biotime(employee_data.employment_type),
-            "enable": True,
-            "create_time": frappe.utils.now()
+            "emp_code": employee_data.name,  # Code employé unique
+            "first_name": employee_data.employee_name.split()[0] if employee_data.employee_name else "Unknown",
+            "last_name": " ".join(employee_data.employee_name.split()[1:]) if len(employee_data.employee_name.split()) > 1 else "",
+            # Département doit être un ID, pas un objet
+            "department": get_biotime_department_id(employee_data.department),
         }
+        
+        # Ajouter le poste si disponible
+        position_id = get_biotime_position_id(employee_data.designation)
+        if position_id:
+            biotime_data["position"] = position_id
         
         print(f"📤 Données envoyées à BioTime: {json.dumps(biotime_data, indent=2)}")
         
@@ -277,8 +270,8 @@ def create_employee_in_biotime(employee_data, headers, main_url):
         )
         return False
 
-def map_department_to_biotime(erpnext_dept):
-    """Map département ERPNext vers BioTime"""
+def get_biotime_department_id(erpnext_dept):
+    """Récupère l'ID du département BioTime"""
     if not erpnext_dept:
         return None
     
@@ -290,46 +283,34 @@ def map_department_to_biotime(erpnext_dept):
     )
     
     if mapping:
-        return {"dept_name": mapping}
+        # TODO: Ici, il faudrait faire un appel API pour récupérer l'ID du département
+        # Pour l'instant, retournons 1 (département par défaut)
+        return 1
     
-    # Retourner tel quel si pas de mapping
-    return {"dept_name": erpnext_dept}
+    # Retourner département par défaut
+    return 1
 
-def map_designation_to_biotime(erpnext_designation):
-    """Map désignation ERPNext vers BioTime"""
+def get_biotime_position_id(erpnext_designation):
+    """Récupère l'ID du poste BioTime"""
     if not erpnext_designation:
         return None
-    return {"position_name": erpnext_designation}
+    
+    # TODO: Implémenter la recherche de poste via API
+    # Pour l'instant, retournons None
+    return None
 
-def map_employment_type_to_biotime(erpnext_emp_type):
-    """Map type d'emploi ERPNext vers BioTime"""
-    if not erpnext_emp_type:
-        return "Full-time"
-    
-    mapping = {
-        "Full-time": "Full-time",
-        "Part-time": "Part-time",
-        "Contract": "Contract",
-        "Intern": "Intern"
-    }
-    
-    return mapping.get(erpnext_emp_type, "Full-time")
+
 
 @frappe.whitelist()
 def debug_biotime_raw_data():
     """Fonction de débogage pour voir les données brutes BioTime"""
-    tokan = get_tokan()
     main_url = get_url()
-    
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'JWT ' + tokan
-    }
+    headers = get_auth_headers()
     
     try:
         print("🔍 === DÉBOGAGE DONNÉES BIOTIME ===")
         print(f"🌐 URL: {main_url}")
-        print(f"🔑 Token: {tokan[:20]}..." if tokan else "❌ Pas de token")
+        print(f"🔑 Headers: {headers}")
         
         # Test plusieurs endpoints
         endpoints = [
@@ -390,7 +371,8 @@ def test_authentication_only():
         print("🔐 === TEST AUTHENTIFICATION BIOTIME ===")
         
         doc = frappe.get_single("BioTime Setting")
-        url = doc.url + "/jwt-api-token-auth/"
+        # ✅ CORRECTION: Endpoint correct selon la documentation
+        url = doc.url + "/api-token-auth/"
         
         headers = {
             "Content-Type": "application/json",
@@ -439,9 +421,10 @@ def test_authentication_only():
         return {"status": "error", "message": str(e)}
 
 def get_tokan():
-    """Récupère un token JWT depuis BioTime avec gestion d'erreurs améliorée"""
+    """Récupère un token depuis BioTime selon la documentation officielle"""
     doc = frappe.get_single("BioTime Setting")
-    url = doc.url + "/jwt-api-token-auth/"
+    # ✅ CORRECTION: Endpoint correct selon la documentation
+    url = doc.url + "/api-token-auth/"
     headers = {
         "Content-Type": "application/json",
     }
@@ -453,6 +436,7 @@ def get_tokan():
     print(f"🔐 Récupération token depuis: {url}")
     print(f"👤 Username: {doc.user_name}")
     print(f"🔑 Password fourni: {'✅ Oui' if doc.get_password('password') else '❌ Non'}")
+    print(f"📤 Données envoyées: {json.dumps(data, indent=2)}")
     
     try:
         response = requests.post(url, data=json.dumps(data), headers=headers, timeout=10)
@@ -462,36 +446,19 @@ def get_tokan():
         
         if response.ok:
             response_data = response.json()
-            print(f"📋 Structure réponse complète: {response_data}")
+            print(f"📋 Structure réponse: {response_data}")
             
-            # Essayer différentes clés possibles pour le token
-            possible_token_keys = ['token', 'access', 'access_token', 'jwt', 'auth_token']
-            token = None
-            
-            for key in possible_token_keys:
-                if key in response_data:
-                    token = response_data[key]
-                    print(f"✅ Token trouvé avec clé '{key}': {token[:20]}...")
-                    break
-            
-            # Fallback: méthode originale (substring)
-            if not token and response.text:
-                try:
-                    # Méthode originale: response.text[10: len(response.text) - 2]
-                    original_method = response.text[10: len(response.text) - 2]
-                    if len(original_method) > 20:  # Vérifier que c'est un token valide
-                        token = original_method
-                        print(f"✅ Token trouvé avec méthode originale: {token[:20]}...")
-                except:
-                    pass
+            # ✅ CORRECTION: Selon la doc, le token est dans {"token": "..."}
+            token = response_data.get("token")
             
             if token:
+                print(f"✅ Token récupéré avec succès: {token[:20]}...")
                 return token
             else:
-                print(f"❌ Aucun token trouvé. Clés disponibles: {list(response_data.keys())}")
+                print(f"❌ Pas de token dans la réponse: {response_data}")
                 frappe.throw(
                     title='Erreur Token',
-                    msg=f'Token non trouvé dans la réponse. Structure: {response_data}',
+                    msg=f'Token non trouvé. Structure: {response_data}',
                 )
         else:
             print(f"❌ Erreur HTTP {response.status_code}: {response.text}")
@@ -528,15 +495,19 @@ def get_url():
     url = doc.url
     return url
 
+def get_auth_headers():
+    """Retourne les headers d'authentification selon la documentation officielle"""
+    token = get_tokan()
+    return {
+        'Content-Type': 'application/json',
+        # ✅ CORRECTION: Format correct selon la documentation officielle
+        'Authorization': 'Token ' + token
+    }
+
 @frappe.whitelist()
 def fetch_transactions():
-    tokan = get_tokan()
     main_url = get_url()
-    
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'JWT ' + tokan
-    }
+    headers = get_auth_headers()
 
     transactions_list = []
 
@@ -691,13 +662,8 @@ def create_employee_checkin(transaction):
 
 @frappe.whitelist()
 def fetch():
-    tokan = get_tokan()
     main_url = get_url()
-
-    headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'JWT ' + tokan
-    }
+    headers = get_auth_headers()
 
     transactions_list = []
     date = frappe.get_single("BioTime Setting").date
