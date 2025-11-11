@@ -282,15 +282,6 @@ def create_employee_in_biotime(employee_data, headers, main_url):
         
         # Utiliser json= pour l'encodage automatique (plus fiable)
         response = requests.post(url, json=biotime_data, headers=headers, timeout=30)
-                headers_alt['Content-Type'] = 'application/x-www-form-urlencoded'
-                
-                print("� Test 2: Envoi avec form-urlencoded")
-                response = requests.post(url, data=biotime_data, headers=headers_alt, timeout=30)
-                print(f"📡 Test 2 Status: {response.status_code}")
-            
-        except Exception as e:
-            print(f"❌ Erreur requête: {str(e)}")
-            return False
         
         print(f"📡 Réponse BioTime Status: {response.status_code}")
         print(f"📡 Réponse BioTime Headers: {dict(response.headers)}")
@@ -303,15 +294,18 @@ def create_employee_in_biotime(employee_data, headers, main_url):
                 print(f"✅ Réponse JSON parsée: {response_data}")
                 
                 biotime_emp_code = response_data.get("emp_code")
-                # Mettre à jour ERPNext avec le device_id
-                if biotime_emp_code:
-                    frappe.db.set_value("Employee", employee_data.name, "attendance_device_id", biotime_emp_code)
-                    frappe.db.commit()
-                    print(f"✅ Device ID mis à jour: {biotime_emp_code}")
-                else:
-                    print("⚠️ Pas d'emp_code dans la réponse")
+                biotime_emp_id = response_data.get("id")
                 
-                return True
+                # Mettre à jour ERPNext avec le device_id (utiliser emp_code ou id)
+                device_id = biotime_emp_code or str(biotime_emp_id)
+                if device_id:
+                    frappe.db.set_value("Employee", employee_data.name, "attendance_device_id", device_id)
+                    frappe.db.commit()
+                    print(f"✅ Device ID mis à jour: {device_id}")
+                    return True
+                else:
+                    print("⚠️ Pas d'emp_code ni d'id dans la réponse")
+                    return False
                 
             except json.JSONDecodeError as json_err:
                 print(f"❌ Erreur parsing JSON: {str(json_err)}")
