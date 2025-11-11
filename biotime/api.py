@@ -383,29 +383,142 @@ def debug_biotime_raw_data():
         print(f"❌ ERREUR DÉBOGAGE: {str(e)}")
         return {"status": "error", "message": str(e)}
 
+@frappe.whitelist()
+def test_authentication_only():
+    """Test spécifique de l'authentification BioTime"""
+    try:
+        print("🔐 === TEST AUTHENTIFICATION BIOTIME ===")
+        
+        doc = frappe.get_single("BioTime Setting")
+        url = doc.url + "/jwt-api-token-auth/"
+        
+        headers = {
+            "Content-Type": "application/json",
+        }
+        data = {
+            "username": doc.user_name,
+            "password": doc.get_password('password')
+        }
+        
+        print(f"🌐 URL auth: {url}")
+        print(f"👤 Username: '{doc.user_name}'")
+        print(f"🔑 Password length: {len(doc.get_password('password') or '')}")
+        print(f"📤 Données envoyées: {json.dumps(data, indent=2)}")
+        
+        response = requests.post(url, data=json.dumps(data), headers=headers, timeout=10)
+        
+        print(f"📡 Status Code: {response.status_code}")
+        print(f"📡 Headers réponse: {dict(response.headers)}")
+        print(f"📡 Réponse brute: '{response.text}'")
+        
+        if response.ok:
+            try:
+                response_data = response.json()
+                print(f"📋 JSON parsé: {json.dumps(response_data, indent=2)}")
+                
+                return {
+                    "status": "success",
+                    "message": "Authentification réussie",
+                    "response_data": response_data,
+                    "raw_response": response.text
+                }
+            except Exception as e:
+                print(f"❌ Erreur parsing JSON: {str(e)}")
+                return {
+                    "status": "error",
+                    "message": f"Réponse non-JSON: {response.text}"
+                }
+        else:
+            return {
+                "status": "error",
+                "message": f"HTTP {response.status_code}: {response.text}"
+            }
+            
+    except Exception as e:
+        print(f"❌ Exception test auth: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
 def get_tokan():
+    """Récupère un token JWT depuis BioTime avec gestion d'erreurs améliorée"""
     doc = frappe.get_single("BioTime Setting")
     url = doc.url + "/jwt-api-token-auth/"
     headers = {
         "Content-Type": "application/json",
     }
-    doc = frappe.get_single("BioTime Setting")
     data = {
-        "username": doc.user_name ,
+        "username": doc.user_name,
         "password": doc.get_password('password')
     }
+    
+    print(f"🔐 Récupération token depuis: {url}")
+    print(f"👤 Username: {doc.user_name}")
+    print(f"🔑 Password fourni: {'✅ Oui' if doc.get_password('password') else '❌ Non'}")
+    
     try:
-        response = requests.post(url, data=json.dumps(data), headers=headers)
-        return response.text[10: len(response.text) - 2]
-    # print(response.text) 
-    # tokan = doc.get_password('tokan') if doc.tokan else ""
-    # return tokan
-    except Exception as e:
+        response = requests.post(url, data=json.dumps(data), headers=headers, timeout=10)
+        
+        print(f"📡 Status Code: {response.status_code}")
+        print(f"📡 Response: {response.text}")
+        
+        if response.ok:
+            response_data = response.json()
+            print(f"📋 Structure réponse complète: {response_data}")
+            
+            # Essayer différentes clés possibles pour le token
+            possible_token_keys = ['token', 'access', 'access_token', 'jwt', 'auth_token']
+            token = None
+            
+            for key in possible_token_keys:
+                if key in response_data:
+                    token = response_data[key]
+                    print(f"✅ Token trouvé avec clé '{key}': {token[:20]}...")
+                    break
+            
+            # Fallback: méthode originale (substring)
+            if not token and response.text:
+                try:
+                    # Méthode originale: response.text[10: len(response.text) - 2]
+                    original_method = response.text[10: len(response.text) - 2]
+                    if len(original_method) > 20:  # Vérifier que c'est un token valide
+                        token = original_method
+                        print(f"✅ Token trouvé avec méthode originale: {token[:20]}...")
+                except:
+                    pass
+            
+            if token:
+                return token
+            else:
+                print(f"❌ Aucun token trouvé. Clés disponibles: {list(response_data.keys())}")
+                frappe.throw(
+                    title='Erreur Token',
+                    msg=f'Token non trouvé dans la réponse. Structure: {response_data}',
+                )
+        else:
+            print(f"❌ Erreur HTTP {response.status_code}: {response.text}")
+            frappe.throw(
+                title='Erreur Authentification',
+                msg=f'Erreur {response.status_code}: Vérifiez vos identifiants BioTime',
+            )
+            
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Erreur réseau: {str(e)}")
         frappe.log_error(
-            message=e, title="Failed while Connect to biotime serever")
+            message=f"Erreur réseau lors de l'authentification: {str(e)}", 
+            title="Erreur Connexion BioTime"
+        )
         frappe.throw(
-            title='Error',
-            msg='Failed while Connect to biotime serever',
+            title='Erreur Connexion',
+            msg='Impossible de se connecter au serveur BioTime. Vérifiez l\'URL.',
+        )
+    except Exception as e:
+        print(f"❌ Erreur générale: {str(e)}")
+        frappe.log_error(
+            message=f"Erreur lors de la récupération du token: {str(e)}", 
+            title="Erreur Token BioTime"
+        )
+        frappe.throw(
+            title='Erreur',
+            msg='Échec de récupération du token. Vérifiez vos paramètres.',
         )
     
 

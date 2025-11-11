@@ -17,8 +17,16 @@ frappe.ui.form.on('Employee Discovery', {
         
         if (frm.doc.status === "Validated") {
             frm.add_custom_button(__('Create Employee'), function() {
-                frm.call('create_employee_from_discovery').then(() => {
-                    frm.reload_doc();
+                frappe.call({
+                    method: "biotime.biotime_integration.doctype.employee_discovery.employee_discovery.create_employee_from_discovery",
+                    args: {
+                        "doc": frm.doc
+                    },
+                    callback: function(r) {
+                        if (!r.exc) {
+                            frm.reload_doc();
+                        }
+                    }
                 });
             }, __('Actions')).addClass('btn-primary');
         }
@@ -26,22 +34,46 @@ frappe.ui.form.on('Employee Discovery', {
         // Bouton de rejet toujours disponible
         if (frm.doc.status !== "Employee Created" && frm.doc.status !== "Rejected") {
             frm.add_custom_button(__('Reject'), function() {
-                frm.call('reject_discovery').then(() => {
-                    frm.reload_doc();
+                frappe.call({
+                    method: "biotime.biotime_integration.doctype.employee_discovery.employee_discovery.reject_discovery",
+                    args: {
+                        "doc": frm.doc
+                    },
+                    callback: function(r) {
+                        if (!r.exc) {
+                            frm.reload_doc();
+                        }
+                    }
                 });
             }, __('Actions'));
         }
     },
     
     create_employee: function(frm) {
-        frm.call('create_employee_from_discovery').then(() => {
-            frm.reload_doc();
+        frappe.call({
+            method: "biotime.biotime_integration.doctype.employee_discovery.employee_discovery.create_employee_from_discovery",
+            args: {
+                "doc": frm.doc
+            },
+            callback: function(r) {
+                if (!r.exc) {
+                    frm.reload_doc();
+                }
+            }
         });
     },
     
     reject_discovery: function(frm) {
-        frm.call('reject_discovery').then(() => {
-            frm.reload_doc();
+        frappe.call({
+            method: "biotime.biotime_integration.doctype.employee_discovery.employee_discovery.reject_discovery",
+            args: {
+                "doc": frm.doc
+            },
+            callback: function(r) {
+                if (!r.exc) {
+                    frm.reload_doc();
+                }
+            }
         });
     },
     

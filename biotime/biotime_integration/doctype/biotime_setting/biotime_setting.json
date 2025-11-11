@@ -19,6 +19,7 @@
   "column_break_emp",
   "test_connection",
   "debug_data",
+  "test_auth",
   "fetch_data_for_a_custom_date_section",
   "date",
   "fetch"
@@ -90,6 +91,11 @@
    "fieldname": "debug_data",
    "fieldtype": "Button",
    "label": "Debug Raw Data"
+  },
+  {
+   "fieldname": "test_auth",
+   "fieldtype": "Button",
+   "label": "Test Auth Only"
   },
   {
    "fieldname": "fetch_data_for_a_custom_date_section",

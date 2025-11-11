@@ -3,9 +3,10 @@
 
 import frappe
 import requests
+import json
 from frappe.model.document import Document
 from frappe import enqueue
-from biotime.api import fetch_transactions, fetch, discover_biotime_employees, sync_erpnext_employees_to_biotime, get_tokan, get_url, debug_biotime_raw_data
+from biotime.api import fetch_transactions, fetch, discover_biotime_employees, sync_erpnext_employees_to_biotime, get_tokan, get_url, debug_biotime_raw_data, test_authentication_only
 
 
 class BioTimeSetting(Document):
@@ -131,4 +132,30 @@ class BioTimeSetting(Document):
             title="Débogage BioTime",
             indicator="blue"
         )
+
+    @frappe.whitelist()
+    def test_auth_only(self):
+        """Test spécifique de l'authentification"""
+        result = test_authentication_only()
+        if result.get("status") == "success":
+            frappe.msgprint(
+                f"""
+                <b>✅ Authentification Réussie</b><br><br>
+                Message: {result.get('message', '')}<br><br>
+                <b>Données reçues:</b><br>
+                <pre>{json.dumps(result.get('response_data', {}), indent=2)}</pre>
+                """,
+                title="Test Authentification",
+                indicator="green"
+            )
+        else:
+            frappe.msgprint(
+                f"""
+                <b>❌ Échec Authentification</b><br><br>
+                Erreur: {result.get('message', '')}<br><br>
+                Vérifiez vos identifiants BioTime.
+                """,
+                title="Test Authentification",
+                indicator="red"
+            )
 
