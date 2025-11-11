@@ -251,7 +251,7 @@ def create_employee_in_biotime(employee_data, headers, main_url):
     try:
         # 🔄 Test avec token frais pour création (nouvelles permissions potentielles)
         print("🔄 Génération token frais pour création...")
-        fresh_token = get_biotime_token()
+        fresh_token = get_tokan()  # ✅ Correction du nom de fonction
         if fresh_token:
             headers_fresh = {
                 'Authorization': f'JWT {fresh_token}',
