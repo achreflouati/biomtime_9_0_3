@@ -4,13 +4,12 @@
 frappe.ui.form.on('BioTime Setting', {
 	fetch_transactions: function (frm) {
 		frappe.call({
-			method: "biotime.biotime_integration.doctype.biotime_setting.biotime_setting.enqueue_long_job_fetch_transactions",
-			args: {
-				"doc": frm.doc
-			},
+			method: "enqueue_long_job_fetch_transactions",
+			doc: frm.doc,
 			callback: function (r) {
 				if (!r.exc) {
 					console.log("Fetch transactions completed");
+					frappe.msgprint("✅ Transactions synchronisées avec succès");
 				}
 			},
 		});
@@ -18,10 +17,8 @@ frappe.ui.form.on('BioTime Setting', {
 
 	fetch: function (frm) {
 		frappe.call({
-			method: "biotime.biotime_integration.doctype.biotime_setting.biotime_setting.enqueue_long_job_fetch",
-			args: {
-				"doc": frm.doc
-			},
+			method: "enqueue_long_job_fetch",
+			doc: frm.doc,
 			callback: function (r) {
 				if (!r.exc) {
 					console.log("Custom fetch completed");
@@ -37,10 +34,8 @@ frappe.ui.form.on('BioTime Setting', {
 		});
 		
 		frappe.call({
-			method: "biotime.biotime_integration.doctype.biotime_setting.biotime_setting.discover_employees",
-			args: {
-				"doc": frm.doc
-			},
+			method: "discover_employees",
+			doc: frm.doc,
 			callback: function (r) {
 				if (!r.exc) {
 					// Le message est affiché dans la méthode Python
@@ -65,10 +60,8 @@ frappe.ui.form.on('BioTime Setting', {
 				});
 				
 				frappe.call({
-					method: "biotime.biotime_integration.doctype.biotime_setting.biotime_setting.sync_to_biotime",
-					args: {
-						"doc": frm.doc
-					},
+					method: "sync_to_biotime",
+					doc: frm.doc,
 					callback: function (r) {
 						if (!r.exc) {
 							console.log("Sync to BioTime completed");
@@ -86,10 +79,8 @@ frappe.ui.form.on('BioTime Setting', {
 		});
 		
 		frappe.call({
-			method: "biotime.biotime_integration.doctype.biotime_setting.biotime_setting.test_biotime_connection",
-			args: {
-				"doc": frm.doc
-			},
+			method: "test_biotime_connection",
+			doc: frm.doc,
 			callback: function (r) {
 				if (!r.exc) {
 					console.log("Connection test completed");
@@ -105,10 +96,8 @@ frappe.ui.form.on('BioTime Setting', {
 		});
 		
 		frappe.call({
-			method: "biotime.biotime_integration.doctype.biotime_setting.biotime_setting.debug_raw_data",
-			args: {
-				"doc": frm.doc
-			},
+			method: "debug_raw_data",
+			doc: frm.doc,
 			callback: function (r) {
 				if (!r.exc) {
 					console.log("Raw data debug completed");
@@ -124,10 +113,8 @@ frappe.ui.form.on('BioTime Setting', {
 		});
 		
 		frappe.call({
-			method: "biotime.biotime_integration.doctype.biotime_setting.biotime_setting.test_auth_only",
-			args: {
-				"doc": frm.doc
-			},
+			method: "test_auth_only",
+			doc: frm.doc,
 			callback: function (r) {
 				if (!r.exc) {
 					console.log("Auth test completed");

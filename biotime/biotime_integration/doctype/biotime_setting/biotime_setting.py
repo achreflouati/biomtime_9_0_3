@@ -1,5 +1,6 @@
 # Copyright (c) 2023, ARD and contributors
 # For license information, please see license.txt
+# Updated: 2025-11-11 - Force module reload
 
 import frappe
 import requests
@@ -10,10 +11,18 @@ from biotime.api import fetch_transactions, fetch, discover_biotime_employees, s
 
 
 class BioTimeSetting(Document):
+    
     @frappe.whitelist()
     def enqueue_long_job_fetch_transactions(self):
-        # enqueue('biotime.api.fetch_transactions', queue="long", timeout=3600)
+        """Synchronise les transactions BioTime vers ERPNext"""
         fetch_transactions()
+        return {"status": "success", "message": "Transactions synchronisées"}
+    
+    @frappe.whitelist()
+    def fetch_biotime_transactions(self):
+        """Méthode alternative pour synchroniser les transactions"""
+        fetch_transactions()
+        return {"status": "success", "message": "Transactions synchronisées"}
     
     @frappe.whitelist()
     def enqueue_long_job_fetch(self):
