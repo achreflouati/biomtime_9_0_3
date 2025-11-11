@@ -24,5 +24,28 @@ frappe.ui.form.on('BioTime Setting', {
 				}
 			},
 		});
+	},
+
+	discover_employees: function (frm) {
+		frappe.show_alert({
+			message: __('Scanning BioTime for new employees...'),
+			indicator: 'blue'
+		});
+		
+		frappe.call({
+			method: "discover_employees",
+			doc: frm.doc,
+			callback: function (r) {
+				if (!r.exc) {
+					// Le message est affiché dans la méthode Python
+					// Rediriger vers la liste Employee Discovery
+					setTimeout(() => {
+						frappe.set_route('List', 'Employee Discovery', {
+							'status': 'Pending Validation'
+						});
+					}, 2000);
+				}
+			},
+		});
 	}
 });

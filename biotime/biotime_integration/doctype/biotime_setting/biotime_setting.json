@@ -13,6 +13,8 @@
   "fetch_transactions",
   "user_name",
   "password",
+  "employee_management_section",
+  "discover_employees",
   "fetch_data_for_a_custom_date_section",
   "date",
   "fetch"
@@ -55,6 +57,16 @@
    "fieldtype": "Password",
    "label": "Password",
    "reqd": 1
+  },
+  {
+   "fieldname": "employee_management_section",
+   "fieldtype": "Section Break",
+   "label": "Employee Management"
+  },
+  {
+   "fieldname": "discover_employees",
+   "fieldtype": "Button",
+   "label": "Discover New Employees"
   },
   {
    "fieldname": "fetch_data_for_a_custom_date_section",

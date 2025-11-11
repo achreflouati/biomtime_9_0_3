@@ -10,6 +10,108 @@ from datetime import datetime
 
 # Biometric Integration
 
+@frappe.whitelist()
+def discover_biotime_employees():
+    """Découvre les employés présents dans BioTime mais absents dans ERPNext"""
+    tokan = get_tokan()
+    main_url = get_url()
+    
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'JWT ' + tokan
+    }
+    
+    try:
+        # Récupérer tous les employés depuis BioTime
+        biotime_employees = fetch_all_biotime_employees(headers, main_url)
+        
+        # Récupérer tous les employés ERPNext avec device_id
+        erpnext_employees = frappe.db.get_all(
+            "Employee", 
+            fields=["name", "employee_name", "attendance_device_id"],
+            filters={"attendance_device_id": ["!=", ""]}
+        )
+        
+        # Identifier les employés manquants
+        missing_employees = find_missing_employees(biotime_employees, erpnext_employees)
+        
+        # Sauvegarder pour validation utilisateur
+        save_discovered_employees(missing_employees)
+        
+        return {
+            "status": "success",
+            "biotime_count": len(biotime_employees),
+            "erpnext_count": len(erpnext_employees),
+            "missing_count": len(missing_employees),
+            "message": f"Trouvé {len(missing_employees)} employés à valider"
+        }
+        
+    except Exception as e:
+        frappe.log_error(message=str(e), title="Erreur Découverte Employés")
+        return {"status": "error", "message": str(e)}
+
+def fetch_all_biotime_employees(headers, main_url):
+    """Récupère tous les employés depuis BioTime avec pagination"""
+    employees_list = []
+    is_next_page = True
+    url = f"{main_url}/personnel/api/employees/"
+    
+    while is_next_page:
+        try:
+            response = requests.get(url, headers=headers, timeout=30)
+            if response.ok:
+                res = response.json()
+                employees = res.get("data", [])
+                employees_list.extend(employees)
+                url = res.get("next")
+                if not url:
+                    is_next_page = False
+            else:
+                frappe.log_error(
+                    message=f"Erreur API BioTime: {response.status_code}", 
+                    title="Erreur Récupération Employés"
+                )
+                break
+        except Exception as e:
+            frappe.log_error(message=str(e), title="Erreur API BioTime")
+            break
+    
+    return employees_list
+
+def find_missing_employees(biotime_employees, erpnext_employees):
+    """Trouve les employés présents dans BioTime mais absents dans ERPNext"""
+    erpnext_device_ids = {emp.attendance_device_id for emp in erpnext_employees if emp.attendance_device_id}
+    
+    missing_employees = []
+    for biotime_emp in biotime_employees:
+        device_id = str(biotime_emp.get("emp_code", ""))
+        if device_id and device_id not in erpnext_device_ids:
+            missing_employees.append({
+                "device_id": device_id,
+                "name": biotime_emp.get("emp_name", ""),
+                "department": biotime_emp.get("department", {}).get("dept_name", ""),
+                "position": biotime_emp.get("position", {}).get("position_name", ""),
+                "biotime_data": biotime_emp
+            })
+    
+    return missing_employees
+
+def save_discovered_employees(missing_employees):
+    """Sauvegarde les employés découverts pour validation"""
+    # Supprimer les anciennes découvertes
+    frappe.db.delete("Employee Discovery", {})
+    
+    for emp in missing_employees:
+        discovery_doc = frappe.new_doc("Employee Discovery")
+        discovery_doc.device_id = emp["device_id"]
+        discovery_doc.employee_name = emp["name"]
+        discovery_doc.department = emp["department"]
+        discovery_doc.position = emp["position"]
+        discovery_doc.biotime_data = json.dumps(emp["biotime_data"])
+        discovery_doc.status = "Pending Validation"
+        discovery_doc.save()
+    
+    frappe.db.commit()
 
 def get_tokan():
     doc = frappe.get_single("BioTime Setting")

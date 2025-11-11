@@ -1,0 +1,56 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-11-11 11:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "istable": 1,
+ "field_order": [
+  "biotime_department",
+  "erpnext_department",
+  "default_designation",
+  "default_shift_type"
+ ],
+ "fields": [
+  {
+   "fieldname": "biotime_department",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "BioTime Department",
+   "reqd": 1
+  },
+  {
+   "fieldname": "erpnext_department",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "ERPNext Department",
+   "options": "Department",
+   "reqd": 1
+  },
+  {
+   "fieldname": "default_designation",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Default Designation",
+   "options": "Designation"
+  },
+  {
+   "fieldname": "default_shift_type",
+   "fieldtype": "Link",
+   "label": "Default Shift Type",
+   "options": "Shift Type"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2025-11-11 11:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "BioTime Integration",
+ "name": "Department Mapping",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}
