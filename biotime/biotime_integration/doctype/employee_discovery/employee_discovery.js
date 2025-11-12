@@ -18,14 +18,29 @@ frappe.ui.form.on('Employee Discovery', {
         if (frm.doc.status === "Validated") {
             frm.add_custom_button(__('Create Employee'), function() {
                 frappe.call({
-                    method: "biotime.biotime_integration.doctype.employee_discovery.employee_discovery.create_employee_from_discovery",
-                    args: {
-                        "doc": frm.doc
-                    },
+                    method: "create_employee_from_discovery",
+                    doc: frm.doc,
                     callback: function(r) {
                         if (!r.exc) {
+                            frappe.msgprint(__('Employee created successfully!'));
                             frm.reload_doc();
                         }
+                    },
+                    error: function(r) {
+                        // Fallback: utiliser le wrapper
+                        console.log("Trying fallback method...");
+                        frappe.call({
+                            method: "biotime.api.create_employee_from_discovery_wrapper",
+                            args: {
+                                "discovery_name": frm.doc.name
+                            },
+                            callback: function(r) {
+                                if (!r.exc) {
+                                    frappe.msgprint(__('Employee created successfully!'));
+                                    frm.reload_doc();
+                                }
+                            }
+                        });
                     }
                 });
             }, __('Actions')).addClass('btn-primary');
@@ -35,14 +50,28 @@ frappe.ui.form.on('Employee Discovery', {
         if (frm.doc.status !== "Employee Created" && frm.doc.status !== "Rejected") {
             frm.add_custom_button(__('Reject'), function() {
                 frappe.call({
-                    method: "biotime.biotime_integration.doctype.employee_discovery.employee_discovery.reject_discovery",
-                    args: {
-                        "doc": frm.doc
-                    },
+                    method: "reject_discovery",
+                    doc: frm.doc,
                     callback: function(r) {
                         if (!r.exc) {
+                            frappe.msgprint(__('Discovery rejected'));
                             frm.reload_doc();
                         }
+                    },
+                    error: function(r) {
+                        // Fallback: utiliser le wrapper
+                        frappe.call({
+                            method: "biotime.api.reject_employee_discovery_wrapper",
+                            args: {
+                                "discovery_name": frm.doc.name
+                            },
+                            callback: function(r) {
+                                if (!r.exc) {
+                                    frappe.msgprint(__('Discovery rejected'));
+                                    frm.reload_doc();
+                                }
+                            }
+                        });
                     }
                 });
             }, __('Actions'));
@@ -51,12 +80,11 @@ frappe.ui.form.on('Employee Discovery', {
     
     create_employee: function(frm) {
         frappe.call({
-            method: "biotime.biotime_integration.doctype.employee_discovery.employee_discovery.create_employee_from_discovery",
-            args: {
-                "doc": frm.doc
-            },
+            method: "create_employee_from_discovery",
+            doc: frm.doc,
             callback: function(r) {
                 if (!r.exc) {
+                    frappe.msgprint(__('Employee created successfully!'));
                     frm.reload_doc();
                 }
             }
@@ -65,12 +93,11 @@ frappe.ui.form.on('Employee Discovery', {
     
     reject_discovery: function(frm) {
         frappe.call({
-            method: "biotime.biotime_integration.doctype.employee_discovery.employee_discovery.reject_discovery",
-            args: {
-                "doc": frm.doc
-            },
+            method: "reject_discovery",
+            doc: frm.doc,
             callback: function(r) {
                 if (!r.exc) {
+                    frappe.msgprint(__('Discovery rejected'));
                     frm.reload_doc();
                 }
             }

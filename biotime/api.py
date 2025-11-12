@@ -1240,3 +1240,29 @@ def fetch():
     print(len(transactions_list))
     if len(transactions_list):
         handel_transactions(transactions_list)
+
+@frappe.whitelist()
+def create_employee_from_discovery_wrapper(discovery_name):
+    """Wrapper pour créer un employé depuis Employee Discovery"""
+    try:
+        doc = frappe.get_doc("Employee Discovery", discovery_name)
+        return doc.create_employee_from_discovery()
+    except Exception as e:
+        frappe.log_error(
+            message=str(e), 
+            title=f"Erreur création employé depuis découverte {discovery_name}"
+        )
+        frappe.throw(f"Erreur lors de la création: {str(e)}")
+
+@frappe.whitelist() 
+def reject_employee_discovery_wrapper(discovery_name):
+    """Wrapper pour rejeter une découverte d'employé"""
+    try:
+        doc = frappe.get_doc("Employee Discovery", discovery_name)
+        return doc.reject_discovery()
+    except Exception as e:
+        frappe.log_error(
+            message=str(e),
+            title=f"Erreur rejet découverte {discovery_name}"
+        )
+        frappe.throw(f"Erreur lors du rejet: {str(e)}")
