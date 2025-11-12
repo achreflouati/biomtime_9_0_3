@@ -184,6 +184,46 @@ def save_discovered_employees(missing_employees):
         discovery_doc.employee_name = emp["name"]
         discovery_doc.department = emp["department"]
         discovery_doc.position = emp["position"]
+        
+        # Nouveaux champs avec valeurs par défaut
+        biotime_data = emp.get("biotime_data", {})
+        
+        # Extraire first_name et last_name depuis les données BioTime
+        discovery_doc.first_name = biotime_data.get("first_name", "")
+        discovery_doc.last_name = biotime_data.get("last_name", "")
+        
+        # Si pas de first_name/last_name, essayer d'extraire du employee_name
+        if not discovery_doc.first_name and discovery_doc.employee_name:
+            name_parts = discovery_doc.employee_name.split()
+            discovery_doc.first_name = name_parts[0] if name_parts else "Employé"
+            discovery_doc.last_name = " ".join(name_parts[1:]) if len(name_parts) > 1 else ""
+        
+        # Valeurs par défaut
+        discovery_doc.gender = biotime_data.get("gender", "M") if biotime_data.get("gender") in ["M", "F"] else "Male"
+        if discovery_doc.gender == "M":
+            discovery_doc.gender = "Male"
+        elif discovery_doc.gender == "F":
+            discovery_doc.gender = "Female"
+        
+        # Date de naissance par défaut
+        birthday = biotime_data.get("birthday")
+        if birthday:
+            discovery_doc.date_of_birth = birthday
+        else:
+            discovery_doc.date_of_birth = "1980-01-01"
+        
+        # Date d'embauche par défaut (aujourd'hui)
+        hire_date = biotime_data.get("hire_date")
+        if hire_date:
+            discovery_doc.date_of_joining = hire_date
+        else:
+            discovery_doc.date_of_joining = frappe.utils.today()
+        
+        # Email personnel si disponible
+        email = biotime_data.get("email")
+        if email:
+            discovery_doc.personal_email = email
+        
         discovery_doc.biotime_data = json.dumps(emp["biotime_data"])
         discovery_doc.status = "Pending Validation"
         discovery_doc.save()

@@ -26,9 +26,42 @@ class EmployeeDiscovery(Document):
             
             # Créer le nouvel employé
             employee_doc = frappe.new_doc('Employee')
-            employee_doc.employee_name = self.employee_name
+            
+            # Champs obligatoires avec valeurs par défaut
+            employee_doc.employee_name = self.employee_name or "Employé BioTime"
             employee_doc.attendance_device_id = self.device_id
             employee_doc.status = 'Active'
+            
+            # First name - priorité: first_name du form, sinon extraire du employee_name, sinon "Employé"
+            if self.first_name:
+                employee_doc.first_name = self.first_name
+            elif self.employee_name:
+                name_parts = self.employee_name.split()
+                employee_doc.first_name = name_parts[0] if name_parts else "Employé"
+            else:
+                employee_doc.first_name = "Employé"
+            
+            # Last name - optionnel
+            if self.last_name:
+                employee_doc.last_name = self.last_name
+            elif self.employee_name and len(self.employee_name.split()) > 1:
+                name_parts = self.employee_name.split()
+                employee_doc.last_name = " ".join(name_parts[1:])
+            
+            # Gender - valeur par défaut "Male"
+            employee_doc.gender = self.gender or "Male"
+            
+            # Date of Birth - valeur par défaut 01/01/1980
+            if self.date_of_birth:
+                employee_doc.date_of_birth = self.date_of_birth
+            else:
+                employee_doc.date_of_birth = "1980-01-01"
+            
+            # Date of Joining - valeur par défaut aujourd'hui
+            if self.date_of_joining:
+                employee_doc.date_of_joining = self.date_of_joining
+            else:
+                employee_doc.date_of_joining = frappe.utils.today()
             
             # Mapping des champs
             if self.mapped_department:
@@ -40,13 +73,19 @@ class EmployeeDiscovery(Document):
             if self.default_shift_type:
                 employee_doc.default_shift = self.default_shift_type
             
+            # Email personnel si disponible
+            if self.personal_email:
+                employee_doc.personal_email = self.personal_email
+            
             # Données supplémentaires depuis BioTime
             if biotime_data:
                 employee_doc.employee_number = biotime_data.get('emp_code')
-                if biotime_data.get('email'):
+                if biotime_data.get('email') and not self.personal_email:
                     employee_doc.personal_email = biotime_data.get('email')
                 if biotime_data.get('mobile'):
                     employee_doc.cell_number = biotime_data.get('mobile')
+                if biotime_data.get('office_tel'):
+                    employee_doc.company_email = biotime_data.get('office_tel')
             
             # Générer le nom d'employé
             employee_doc.naming_series = "EMP-.YYYY.-"

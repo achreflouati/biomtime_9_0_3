@@ -9,9 +9,17 @@
   "employee_information_section",
   "device_id",
   "employee_name",
+  "first_name",
+  "last_name",
   "column_break_1",
   "department",
   "position",
+  "employee_details_section",
+  "gender",
+  "date_of_birth",
+  "column_break_4",
+  "date_of_joining",
+  "personal_email",
   "validation_section",
   "status",
   "validated_by",
@@ -51,6 +59,16 @@
    "reqd": 1
   },
   {
+   "fieldname": "first_name",
+   "fieldtype": "Data",
+   "label": "First Name"
+  },
+  {
+   "fieldname": "last_name",
+   "fieldtype": "Data",
+   "label": "Last Name"
+  },
+  {
    "fieldname": "column_break_1",
    "fieldtype": "Column Break"
   },
@@ -63,6 +81,39 @@
    "fieldname": "position",
    "fieldtype": "Data",
    "label": "BioTime Position"
+  },
+  {
+   "fieldname": "employee_details_section",
+   "fieldtype": "Section Break",
+   "label": "Employee Details"
+  },
+  {
+   "fieldname": "gender",
+   "fieldtype": "Select",
+   "label": "Gender",
+   "options": "Male\nFemale\nOther",
+   "default": "Male"
+  },
+  {
+   "fieldname": "date_of_birth",
+   "fieldtype": "Date",
+   "label": "Date of Birth",
+   "default": "1980-01-01"
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "date_of_joining",
+   "fieldtype": "Date",
+   "label": "Date of Joining",
+   "default": "Today"
+  },
+  {
+   "fieldname": "personal_email",
+   "fieldtype": "Data",
+   "label": "Personal Email"
   },
   {
    "fieldname": "validation_section",
