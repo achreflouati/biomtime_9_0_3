@@ -132,9 +132,26 @@ frappe.ui.form.on('BioTime Setting', {
 		frappe.call({
 			method: "diagnose_auth_issue", 
 			doc: frm.doc,
-			callback: function (r) {
+			callback: function(r) {
 				if (!r.exc) {
 					console.log("Auth diagnosis completed");
+				}
+			},
+		});
+	},
+
+	sync_transactions: function (frm) {
+		frappe.show_alert({
+			message: __('Synchronizing BioTime transactions...'),
+			indicator: 'blue'
+		});
+		
+		frappe.call({
+			method: "sync_transactions_now",
+			doc: frm.doc,
+			callback: function(r) {
+				if (!r.exc) {
+					console.log("Transactions sync completed");
 				}
 			},
 		});

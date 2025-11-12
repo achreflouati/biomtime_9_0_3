@@ -21,6 +21,7 @@
   "debug_data",
   "test_auth",
   "diagnose_auth",
+  "sync_transactions",
   "fetch_data_for_a_custom_date_section",
   "date",
   "fetch"
@@ -102,6 +103,11 @@
    "fieldname": "diagnose_auth",
    "fieldtype": "Button",
    "label": "🔬 Diagnose Auth Issue"
+  },
+  {
+   "fieldname": "sync_transactions",
+   "fieldtype": "Button",
+   "label": "🕒 Sync Transactions"
   },
   {
    "fieldname": "fetch_data_for_a_custom_date_section",

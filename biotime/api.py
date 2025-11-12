@@ -1282,6 +1282,216 @@ def fetch():
         handel_transactions(transactions_list)
 
 @frappe.whitelist()
+def fetch_biotime_transactions(start_date=None, end_date=None, emp_code=None):
+    """Récupère les transactions depuis BioTime et crée des Employee Check-ins automatiques"""
+    try:
+        print("🕒 === RÉCUPÉRATION TRANSACTIONS BIOTIME ===")
+        
+        # Configuration par défaut - dernières 24 heures si pas de dates spécifiées
+        if not start_date:
+            start_date = frappe.utils.add_to_date(frappe.utils.now(), days=-1)
+        if not end_date:
+            end_date = frappe.utils.now()
+            
+        print(f"📅 Période: {start_date} → {end_date}")
+        
+        headers = get_auth_headers()
+        main_url = get_url()
+        
+        if not headers:
+            return {"error": "❌ Impossible d'obtenir les headers d'authentification"}
+        
+        # Construire l'URL avec paramètres
+        url = f"{main_url}/iclock/api/transactions/"
+        params = {
+            "page_size": 100,
+            "start_time": start_date,
+            "end_time": end_date
+        }
+        
+        if emp_code:
+            params["emp_code"] = emp_code
+            
+        print(f"🌐 URL: {url}")
+        print(f"📋 Paramètres: {params}")
+        
+        all_transactions = []
+        page = 1
+        
+        while True:
+            params["page"] = page
+            print(f"📄 Traitement page {page}...")
+            
+            response = requests.get(url, headers=headers, params=params, timeout=30)
+            
+            if response.ok:
+                data = response.json()
+                transactions = data.get("data", [])
+                
+                print(f"   📊 {len(transactions)} transactions trouvées")
+                all_transactions.extend(transactions)
+                
+                # Vérifier s'il y a une page suivante
+                if not data.get("next"):
+                    print("✅ Dernière page atteinte")
+                    break
+                    
+                page += 1
+                
+            else:
+                print(f"❌ Erreur HTTP {response.status_code}: {response.text}")
+                break
+        
+        print(f"✅ Total transactions récupérées: {len(all_transactions)}")
+        
+        # Créer les Employee Check-ins
+        if all_transactions:
+            result = create_employee_checkins(all_transactions)
+            return {
+                "status": "success",
+                "transactions_count": len(all_transactions),
+                "checkins_created": result["created"],
+                "checkins_skipped": result["skipped"],
+                "message": f"Récupéré {len(all_transactions)} transactions, créé {result['created']} check-ins"
+            }
+        else:
+            return {
+                "status": "warning", 
+                "message": "Aucune transaction trouvée pour cette période"
+            }
+            
+    except Exception as e:
+        error_msg = f"❌ Erreur récupération transactions: {str(e)}"
+        print(error_msg)
+        frappe.log_error(message=str(e), title="Erreur Récupération Transactions BioTime")
+        return {"error": error_msg}
+
+def create_employee_checkins(transactions):
+    """Crée des Employee Check-in depuis les transactions BioTime"""
+    created_count = 0
+    skipped_count = 0
+    
+    print("📝 === CRÉATION EMPLOYEE CHECK-INS ===")
+    
+    for transaction in transactions:
+        try:
+            emp_code = transaction.get("emp_code")
+            punch_time = transaction.get("punch_time")
+            punch_state = transaction.get("punch_state")
+            punch_state_display = transaction.get("punch_state_display", "")
+            
+            if not emp_code or not punch_time:
+                print(f"⚠️ Transaction incomplète ignorée: {transaction.get('id')}")
+                skipped_count += 1
+                continue
+            
+            # Trouver l'employé ERPNext correspondant
+            employee = frappe.db.get_value(
+                "Employee",
+                {"attendance_device_id": emp_code, "status": "Active"},
+                ["name", "employee_name"]
+            )
+            
+            if not employee:
+                print(f"⚠️ Employé non trouvé pour emp_code: {emp_code}")
+                skipped_count += 1
+                continue
+            
+            employee_name, employee_full_name = employee
+            
+            # Convertir punch_state en log_type ERPNext
+            if punch_state == "0" or "check in" in punch_state_display.lower():
+                log_type = "IN"
+            elif punch_state == "1" or "check out" in punch_state_display.lower():
+                log_type = "OUT"
+            else:
+                log_type = "IN"  # Par défaut
+            
+            # Convertir le format de date
+            punch_datetime = frappe.utils.get_datetime(punch_time)
+            
+            # Vérifier si ce check-in existe déjà (éviter les doublons)
+            existing_checkin = frappe.db.exists(
+                "Employee Checkin",
+                {
+                    "employee": employee_name,
+                    "time": punch_datetime,
+                    "log_type": log_type
+                }
+            )
+            
+            if existing_checkin:
+                print(f"⚠️ Check-in déjà existant: {employee_full_name} - {punch_time}")
+                skipped_count += 1
+                continue
+            
+            # Créer l'Employee Checkin
+            checkin_doc = frappe.new_doc("Employee Checkin")
+            checkin_doc.employee = employee_name
+            checkin_doc.log_type = log_type
+            checkin_doc.time = punch_datetime
+            checkin_doc.device_id = transaction.get("terminal_sn", "BioTime")
+            
+            # Informations supplémentaires dans des champs personnalisés
+            # Note: Ces champs devront être ajoutés au DocType Employee Checkin si souhaités
+            try:
+                if hasattr(checkin_doc, 'custom_biotime_transaction_id'):
+                    checkin_doc.custom_biotime_transaction_id = str(transaction.get("id"))
+                if hasattr(checkin_doc, 'custom_punch_state'):
+                    checkin_doc.custom_punch_state = punch_state_display
+                if hasattr(checkin_doc, 'custom_verify_type'):
+                    checkin_doc.custom_verify_type = transaction.get("verify_type_display", "")
+                if hasattr(checkin_doc, 'custom_gps_location') and transaction.get("gps_location"):
+                    checkin_doc.custom_gps_location = transaction.get("gps_location")
+                if hasattr(checkin_doc, 'custom_temperature') and transaction.get("temperature"):
+                    checkin_doc.custom_temperature = transaction.get("temperature")
+            except:
+                pass  # Ignorer si les champs personnalisés n'existent pas
+            
+            checkin_doc.save()
+            created_count += 1
+            
+            print(f"✅ Check-in créé: {employee_full_name} - {log_type} - {punch_time}")
+            
+        except Exception as e:
+            print(f"❌ Erreur création check-in: {str(e)}")
+            skipped_count += 1
+            frappe.log_error(
+                message=f"Erreur check-in pour transaction {transaction.get('id')}: {str(e)}",
+                title="Erreur Création Employee Checkin"
+            )
+    
+    frappe.db.commit()
+    print(f"📊 Résumé: {created_count} créés, {skipped_count} ignorés")
+    
+    return {"created": created_count, "skipped": skipped_count}
+
+@frappe.whitelist()
+def sync_transactions_scheduled():
+    """Fonction appelée par le job schedulé pour synchroniser les transactions"""
+    try:
+        # Récupérer les transactions des dernières 30 minutes (avec marge)
+        start_time = frappe.utils.add_to_date(frappe.utils.now(), minutes=-30)
+        end_time = frappe.utils.now()
+        
+        print(f"🕒 Synchronisation programmée: {start_time} → {end_time}")
+        
+        result = fetch_biotime_transactions(
+            start_date=start_time.strftime('%Y-%m-%d %H:%M:%S'),
+            end_date=end_time.strftime('%Y-%m-%d %H:%M:%S')
+        )
+        
+        print(f"✅ Sync programmée terminée: {result.get('message', 'OK')}")
+        return result
+        
+    except Exception as e:
+        frappe.log_error(
+            message=str(e),
+            title="Erreur Sync Programmée Transactions"
+        )
+        print(f"❌ Erreur sync programmée: {str(e)}")
+
+@frappe.whitelist()
 def create_employee_from_discovery_wrapper(discovery_name):
     """Wrapper pour créer un employé depuis Employee Discovery"""
     try:

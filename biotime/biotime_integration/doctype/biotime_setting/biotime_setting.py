@@ -7,7 +7,7 @@ import requests
 import json
 from frappe.model.document import Document
 from frappe import enqueue
-from biotime.api import fetch_transactions, fetch, discover_biotime_employees, sync_erpnext_employees_to_biotime, get_tokan, get_url, debug_biotime_raw_data, test_authentication_only, diagnose_biotime_auth_issue
+from biotime.api import fetch_transactions, fetch, discover_biotime_employees, sync_erpnext_employees_to_biotime, get_tokan, get_url, debug_biotime_raw_data, test_authentication_only, diagnose_biotime_auth_issue, fetch_biotime_transactions
 
 
 class BioTimeSetting(Document):
@@ -18,6 +18,33 @@ class BioTimeSetting(Document):
         fetch_transactions()
         return {"status": "success", "message": "Transactions synchronisées"}
     
+    @frappe.whitelist()
+    def sync_transactions_now(self):
+        """Synchronise les transactions BioTime récentes"""
+        result = fetch_biotime_transactions()
+        if result.get("status") == "success":
+            frappe.msgprint(
+                f"""
+                <b>✅ Transactions Synchronisées</b><br><br>
+                <b>📊 Résultats:</b><br>
+                • Transactions récupérées: {result.get('transactions_count', 0)}<br>
+                • Check-ins créés: {result.get('checkins_created', 0)}<br>
+                • Check-ins ignorés: {result.get('checkins_skipped', 0)}<br><br>
+                {result.get('message', '')}
+                """,
+                title="Synchronisation Transactions",
+                indicator="green"
+            )
+        else:
+            frappe.msgprint(
+                f"""
+                <b>❌ Erreur Synchronisation</b><br><br>
+                {result.get('error', result.get('message', 'Erreur inconnue'))}
+                """,
+                title="Erreur Transactions",
+                indicator="red"
+            )
+
     @frappe.whitelist()
     def fetch_biotime_transactions(self):
         """Méthode alternative pour synchroniser les transactions"""

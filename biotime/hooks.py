@@ -108,8 +108,13 @@ app_license = "MIT"
 
 scheduler_events = {
     "cron": {
+        # Job quotidien à 23h pour synchronisation complète
         "0 23 * * *": [
             "biotime.api.fetch_transactions"
+        ],
+        # Job toutes les 15 minutes pour synchronisation en temps réel
+        "*/15 * * * *": [
+            "biotime.api.sync_transactions_scheduled"
         ],
     },
 }
