@@ -19,6 +19,61 @@ class BioTimeSetting(Document):
         return {"status": "success", "message": "Transactions synchronisées"}
     
     @frappe.whitelist()
+    def sync_transactions_with_daterange(self, start_date, end_date, emp_code=None):
+        """Synchronise les transactions BioTime pour une période spécifique"""
+        result = fetch_biotime_transactions(
+            start_date=start_date, 
+            end_date=end_date, 
+            emp_code=emp_code
+        )
+        
+        if result.get("status") == "success":
+            frappe.msgprint(
+                f"""
+                <b>✅ Transactions Synchronisées</b><br><br>
+                <b>📅 Période:</b> {start_date} → {end_date}<br>
+                {f'<b>👤 Employé:</b> {emp_code}<br>' if emp_code else ''}
+                <br>
+                <b>📊 Résultats:</b><br>
+                • Transactions récupérées: {result.get('transactions_count', 0)}<br>
+                • Check-ins créés: {result.get('checkins_created', 0)}<br>
+                • Check-ins ignorés: {result.get('checkins_skipped', 0)}<br><br>
+                <b>💡 Note:</b> Les doublons sont automatiquement ignorés<br><br>
+                {result.get('message', '')}
+                """,
+                title="Synchronisation Transactions",
+                indicator="green"
+            )
+        elif result.get("status") == "warning":
+            frappe.msgprint(
+                f"""
+                <b>⚠️ Aucune Transaction Trouvée</b><br><br>
+                <b>📅 Période:</b> {start_date} → {end_date}<br>
+                {f'<b>👤 Employé:</b> {emp_code}<br>' if emp_code else ''}
+                <br>
+                {result.get('message', 'Aucune transaction trouvée pour cette période')}
+                """,
+                title="Synchronisation Transactions",
+                indicator="yellow"
+            )
+        else:
+            frappe.msgprint(
+                f"""
+                <b>❌ Erreur Synchronisation</b><br><br>
+                <b>📅 Période:</b> {start_date} → {end_date}<br>
+                {f'<b>👤 Employé:</b> {emp_code}<br>' if emp_code else ''}
+                <br>
+                <b>Erreur:</b> {result.get('error', result.get('message', 'Erreur inconnue'))}<br><br>
+                <b>💡 Suggestions:</b><br>
+                • Vérifiez la connexion BioTime<br>
+                • Confirmez que la période contient des données<br>
+                • Consultez les logs du serveur pour plus de détails
+                """,
+                title="Erreur Transactions",
+                indicator="red"
+            )
+
+    @frappe.whitelist()
     def sync_transactions_now(self):
         """Synchronise les transactions BioTime récentes"""
         result = fetch_biotime_transactions()
